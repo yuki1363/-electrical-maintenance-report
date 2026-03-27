@@ -377,7 +377,7 @@ function buildEntryForm() {
     });
     cat.measurements.forEach(m => {
       const phases = m.phases || 1;
-      const phaseLabels = phases === 3 ? ['R相','S相','T相'] : phases === 2 ? ['L1','L2'] : null;
+      const phaseLabels = getPhaseLabels(phases);
       const row = document.createElement('div');
       row.className = 'form-row';
       if (!phaseLabels) {
@@ -556,14 +556,13 @@ function buildRecordHTML(r) {
 
   // 計測値
   const msRows = [];
-  const phLbl = { 2: ['L1','L2'], 3: ['R相','S相','T相'] };
   cfg.forEach(cat => {
     cat.measurements.forEach(m => {
       const val = ms[m.key];
       if (val === undefined || val === '') return;
       if (Array.isArray(val)) {
         const phases = m.phases || val.length;
-        const labels = phLbl[phases] || val.map((_,i)=>`${i+1}`);
+        const labels = getPhaseLabels(phases) || val.map((_,i)=>`${i+1}`);
         const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${v} ${esc(m.unit)}` : '').filter(Boolean).join('　');
         if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
       } else {
@@ -771,11 +770,11 @@ function renderSettingsPage(openSet) {
               </div>
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
-              <select style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px" onchange="renameMeas(${ci},${mi},'phases',+this.value)">
-                <option value="1" ${(m.phases||1)===1?'selected':''}>単独</option>
-                <option value="2" ${m.phases===2?'selected':''}>単相(L1/L2)</option>
-                <option value="3" ${m.phases===3?'selected':''}>三相(R/S/T)</option>
-              </select>
+              <input type="number" min="1" max="12" value="${m.phases||1}"
+                style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                title="入力欄の数" placeholder="数"
+                onchange="renameMeas(${ci},${mi},'phases',+this.value||1)">
+              <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
               <button class="btn btn-warning btn-sm" onclick="dupMeas(${ci},${mi})">複製</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMeas(${ci},${mi})">削除</button>
             </div>`).join('')}
@@ -783,11 +782,10 @@ function renderSettingsPage(openSet) {
         <div class="add-row" style="flex-wrap:wrap;gap:4px">
           <input type="text" id="new-meas-label-${ci}" placeholder="ラベル (例: 電圧)">
           <input type="text" class="unit-input" id="new-meas-unit-${ci}" placeholder="単位">
-          <select id="new-meas-phases-${ci}" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px">
-            <option value="1">単独</option>
-            <option value="2">単相(L1/L2)</option>
-            <option value="3">三相(R/S/T)</option>
-          </select>
+          <input type="number" min="1" max="12" value="1" id="new-meas-phases-${ci}"
+            style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            title="入力欄の数" placeholder="数">
+          <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
           <button class="btn btn-primary btn-sm" onclick="addMeas(${ci})">追加</button>
         </div>
       </div>`;
@@ -899,6 +897,13 @@ function resetConfig() {
   if (!confirm('設定をデフォルトに戻しますか？\n（記録データは消えません）')) return;
   localStorage.removeItem('inspection_config');
   renderSettingsPage(); buildEntryForm();
+}
+
+function getPhaseLabels(n) {
+  if (!n || n <= 1) return null;
+  if (n === 2) return ['L1', 'L2'];
+  if (n === 3) return ['R相', 'S相', 'T相'];
+  return Array.from({length: n}, (_, i) => `${i+1}`);
 }
 
 function esc(s) {
