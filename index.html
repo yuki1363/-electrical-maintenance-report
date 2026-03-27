@@ -613,15 +613,29 @@ function importData(e) {
 }
 
 // ===================== 設定画面 =====================
-function renderSettingsPage() {
+function getOpenCats() {
+  const open = new Set();
+  document.querySelectorAll('.setting-cat-body').forEach((body, i) => {
+    if (body.classList.contains('open')) open.add(i);
+  });
+  return open;
+}
+
+function renderSettingsPage(openSet) {
   const cfg = getConfig();
+  const openStates = openSet !== undefined ? openSet : getOpenCats();
   const container = document.getElementById('settings-categories');
   container.innerHTML = '';
   cfg.forEach((cat, ci) => {
+    const isLast = ci === cfg.length - 1;
     const div = document.createElement('div');
     div.className = 'setting-cat';
     div.innerHTML = `
       <div class="setting-cat-header" onclick="toggleCat(this)">
+        <div style="display:flex;gap:3px;flex-shrink:0" onclick="event.stopPropagation()">
+          <button class="btn btn-secondary btn-sm" style="padding:3px 7px" ${ci===0?'disabled':''} onclick="moveCat(${ci},-1)">▲</button>
+          <button class="btn btn-secondary btn-sm" style="padding:3px 7px" ${isLast?'disabled':''} onclick="moveCat(${ci},1)">▼</button>
+        </div>
         <span class="setting-cat-title">${esc(cat.title)}</span>
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCat(${ci})">削除</button>
       </div>
@@ -635,6 +649,10 @@ function renderSettingsPage() {
         <div id="checks-list-${ci}">
           ${cat.checks.map((item, ii) => `
             <div class="setting-item">
+              <div style="display:flex;gap:2px;flex-shrink:0">
+                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${ii===0?'disabled':''} onclick="moveCheck(${ci},${ii},-1)">▲</button>
+                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${ii===cat.checks.length-1?'disabled':''} onclick="moveCheck(${ci},${ii},1)">▼</button>
+              </div>
               <input type="text" value="${esc(item.label)}" onchange="renameCheck(${ci},${ii},this.value)">
               <button class="btn btn-danger btn-sm" onclick="deleteCheck(${ci},${ii})">削除</button>
             </div>`).join('')}
@@ -648,6 +666,10 @@ function renderSettingsPage() {
         <div id="meas-list-${ci}">
           ${cat.measurements.map((m, mi) => `
             <div class="setting-item" style="flex-wrap:wrap;gap:4px">
+              <div style="display:flex;gap:2px;flex-shrink:0">
+                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${mi===0?'disabled':''} onclick="moveMeas(${ci},${mi},-1)">▲</button>
+                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${mi===cat.measurements.length-1?'disabled':''} onclick="moveMeas(${ci},${mi},1)">▼</button>
+              </div>
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
               <select style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px" onchange="renameMeas(${ci},${mi},'phases',+this.value)">
@@ -671,37 +693,69 @@ function renderSettingsPage() {
       </div>`;
     container.appendChild(div);
   });
+  // 開閉状態を復元
+  openStates.forEach(i => {
+    const body = document.getElementById('cat-body-'+i);
+    if (body) body.classList.add('open');
+  });
 }
 
 function toggleCat(header) {
-  const body = header.nextElementSibling;
-  body.classList.toggle('open');
+  header.nextElementSibling.classList.toggle('open');
 }
 
+// 構造変更（追加・削除・移動）: 設定ページを再描画（開閉状態保持）
 function modifyConfig(fn) {
+  const openStates = getOpenCats();
   const cfg = getConfig();
   fn(cfg);
   saveConfig(cfg);
-  renderSettingsPage();
+  renderSettingsPage(openStates);
+  buildEntryForm();
+}
+
+// 名前変更のみ: 設定ページは再描画しない
+function modifyConfigSilent(fn) {
+  const cfg = getConfig();
+  fn(cfg);
+  saveConfig(cfg);
   buildEntryForm();
 }
 
 function addCategory() {
-  modifyConfig(cfg => cfg.push({ id: 'cat_'+Date.now(), title: '新しいカテゴリ', checks: [], measurements: [] }));
+  const openStates = getOpenCats();
+  const cfg = getConfig();
+  cfg.push({ id: 'cat_'+Date.now(), title: '新しいカテゴリ', checks: [], measurements: [] });
+  saveConfig(cfg);
+  openStates.add(cfg.length - 1); // 新カテゴリを開いた状態で表示
+  renderSettingsPage(openStates);
+  buildEntryForm();
 }
 function deleteCat(ci) {
   if (!confirm('このカテゴリを削除しますか？')) return;
   modifyConfig(cfg => cfg.splice(ci, 1));
 }
-function renameCat(ci, val) { modifyConfig(cfg => { cfg[ci].title = val; }); }
+function moveCat(ci, dir) {
+  modifyConfig(cfg => {
+    const t = cfg[ci]; cfg[ci] = cfg[ci+dir]; cfg[ci+dir] = t;
+  });
+}
+function renameCat(ci, val) { modifyConfigSilent(cfg => { cfg[ci].title = val; }); }
+
 function addCheck(ci) {
   const inp = document.getElementById('new-check-'+ci);
   const label = inp.value.trim(); if (!label) return;
-  modifyConfig(cfg => cfg[ci].checks.push({ key: 'ck_'+Date.now(), label }));
   inp.value = '';
+  modifyConfig(cfg => cfg[ci].checks.push({ key: 'ck_'+Date.now(), label }));
 }
 function deleteCheck(ci, ii) { modifyConfig(cfg => cfg[ci].checks.splice(ii,1)); }
-function renameCheck(ci, ii, val) { modifyConfig(cfg => { cfg[ci].checks[ii].label = val; }); }
+function moveCheck(ci, ii, dir) {
+  modifyConfig(cfg => {
+    const a = cfg[ci].checks; const t = a[ii]; a[ii] = a[ii+dir]; a[ii+dir] = t;
+  });
+}
+function renameCheck(ci, ii, val) { modifyConfigSilent(cfg => { cfg[ci].checks[ii].label = val; }); }
+
 function addMeas(ci) {
   const label  = document.getElementById('new-meas-label-'+ci).value.trim(); if (!label) return;
   const unit   = document.getElementById('new-meas-unit-'+ci).value.trim();
@@ -709,7 +763,12 @@ function addMeas(ci) {
   modifyConfig(cfg => cfg[ci].measurements.push({ key: 'm_'+Date.now(), label, unit, phases }));
 }
 function deleteMeas(ci, mi) { modifyConfig(cfg => cfg[ci].measurements.splice(mi,1)); }
-function renameMeas(ci, mi, field, val) { modifyConfig(cfg => { cfg[ci].measurements[mi][field] = val; }); }
+function moveMeas(ci, mi, dir) {
+  modifyConfig(cfg => {
+    const a = cfg[ci].measurements; const t = a[mi]; a[mi] = a[mi+dir]; a[mi+dir] = t;
+  });
+}
+function renameMeas(ci, mi, field, val) { modifyConfigSilent(cfg => { cfg[ci].measurements[mi][field] = val; }); }
 function resetConfig() {
   if (!confirm('設定をデフォルトに戻しますか？\n（記録データは消えません）')) return;
   localStorage.removeItem('inspection_config');
