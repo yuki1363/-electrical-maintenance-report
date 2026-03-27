@@ -319,8 +319,15 @@ function restoreDraft() {
   // 計測値を復元
   if (draft.measurements) {
     Object.entries(draft.measurements).forEach(([key, val]) => {
-      const el = document.getElementById('m_'+key);
-      if (el) el.value = val;
+      if (Array.isArray(val)) {
+        val.forEach((v, i) => {
+          const el = document.getElementById(`m_${key}_${i}`);
+          if (el && v !== '') el.value = v;
+        });
+      } else {
+        const el = document.getElementById('m_'+key);
+        if (el) el.value = val;
+      }
     });
   }
   document.getElementById('draft-banner').style.display = 'none';
@@ -362,11 +369,24 @@ function buildEntryForm() {
       card.appendChild(row);
     });
     cat.measurements.forEach(m => {
+      const phases = m.phases || 1;
+      const phaseLabels = phases === 3 ? ['R相','S相','T相'] : phases === 2 ? ['L1','L2'] : null;
       const row = document.createElement('div');
       row.className = 'form-row';
-      row.innerHTML = `<label>${esc(m.label)}</label>
-        <input type="number" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
-        <span class="unit">${esc(m.unit)}</span>`;
+      if (!phaseLabels) {
+        row.innerHTML = `<label>${esc(m.label)}</label>
+          <input type="number" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
+          <span class="unit">${esc(m.unit)}</span>`;
+      } else {
+        const inputs = phaseLabels.map((lbl, i) =>
+          `<span style="font-size:12px;color:var(--muted);white-space:nowrap">${lbl}:
+           <input type="number" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
+           ${esc(m.unit)}</span>`
+        ).join(' ');
+        row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>`;
+        row.style.flexWrap = 'wrap';
+      }
       card.appendChild(row);
     });
     container.appendChild(card);
@@ -410,8 +430,17 @@ function collectForm() {
   const cfg = getConfig();
   const measurements = {};
   cfg.forEach(cat => cat.measurements.forEach(m => {
-    const el = document.getElementById('m_'+m.key);
-    if (el && el.value !== '') measurements[m.key] = el.value;
+    const phases = m.phases || 1;
+    if (phases === 1) {
+      const el = document.getElementById('m_'+m.key);
+      if (el && el.value !== '') measurements[m.key] = el.value;
+    } else {
+      const vals = Array.from({length: phases}, (_, i) => {
+        const el = document.getElementById(`m_${m.key}_${i}`);
+        return el ? el.value : '';
+      });
+      if (vals.some(v => v !== '')) measurements[m.key] = vals;
+    }
   }));
   return {
     date: document.getElementById('date').value,
@@ -505,10 +534,18 @@ function buildRecordHTML(r) {
 
   // 計測値
   const msRows = [];
+  const phLbl = { 2: ['L1','L2'], 3: ['R相','S相','T相'] };
   cfg.forEach(cat => {
     cat.measurements.forEach(m => {
-      if (ms[m.key] !== undefined && ms[m.key] !== '') {
-        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')')}${td(ms[m.key]+' '+esc(m.unit))}</tr>`);
+      const val = ms[m.key];
+      if (val === undefined || val === '') return;
+      if (Array.isArray(val)) {
+        const phases = m.phases || val.length;
+        const labels = phLbl[phases] || val.map((_,i)=>`${i+1}`);
+        const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${v} ${esc(m.unit)}` : '').filter(Boolean).join('　');
+        if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
+      } else {
+        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(val+' '+esc(m.unit))}</tr>`);
       }
     });
   });
@@ -610,15 +647,25 @@ function renderSettingsPage() {
         <div class="setting-section-label">計測値フィールド</div>
         <div id="meas-list-${ci}">
           ${cat.measurements.map((m, mi) => `
-            <div class="setting-item">
+            <div class="setting-item" style="flex-wrap:wrap;gap:4px">
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
+              <select style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px" onchange="renameMeas(${ci},${mi},'phases',+this.value)">
+                <option value="1" ${(m.phases||1)===1?'selected':''}>単独</option>
+                <option value="2" ${m.phases===2?'selected':''}>単相(L1/L2)</option>
+                <option value="3" ${m.phases===3?'selected':''}>三相(R/S/T)</option>
+              </select>
               <button class="btn btn-danger btn-sm" onclick="deleteMeas(${ci},${mi})">削除</button>
             </div>`).join('')}
         </div>
-        <div class="add-row">
+        <div class="add-row" style="flex-wrap:wrap;gap:4px">
           <input type="text" id="new-meas-label-${ci}" placeholder="ラベル (例: 電圧)">
           <input type="text" class="unit-input" id="new-meas-unit-${ci}" placeholder="単位">
+          <select id="new-meas-phases-${ci}" style="padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px">
+            <option value="1">単独</option>
+            <option value="2">単相(L1/L2)</option>
+            <option value="3">三相(R/S/T)</option>
+          </select>
           <button class="btn btn-primary btn-sm" onclick="addMeas(${ci})">追加</button>
         </div>
       </div>`;
@@ -656,9 +703,10 @@ function addCheck(ci) {
 function deleteCheck(ci, ii) { modifyConfig(cfg => cfg[ci].checks.splice(ii,1)); }
 function renameCheck(ci, ii, val) { modifyConfig(cfg => { cfg[ci].checks[ii].label = val; }); }
 function addMeas(ci) {
-  const label = document.getElementById('new-meas-label-'+ci).value.trim(); if (!label) return;
-  const unit  = document.getElementById('new-meas-unit-'+ci).value.trim();
-  modifyConfig(cfg => cfg[ci].measurements.push({ key: 'm_'+Date.now(), label, unit }));
+  const label  = document.getElementById('new-meas-label-'+ci).value.trim(); if (!label) return;
+  const unit   = document.getElementById('new-meas-unit-'+ci).value.trim();
+  const phases = +(document.getElementById('new-meas-phases-'+ci).value);
+  modifyConfig(cfg => cfg[ci].measurements.push({ key: 'm_'+Date.now(), label, unit, phases }));
 }
 function deleteMeas(ci, mi) { modifyConfig(cfg => cfg[ci].measurements.splice(mi,1)); }
 function renameMeas(ci, mi, field, val) { modifyConfig(cfg => { cfg[ci].measurements[mi][field] = val; }); }
