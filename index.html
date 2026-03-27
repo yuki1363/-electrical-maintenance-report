@@ -146,6 +146,16 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
       <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
     </div>
   </div>
+  <div id="draft-banner" style="display:none;background:#fef9e7;border:1px solid #d4ac0d;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span id="draft-info" style="color:#7d6608"></span>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-warning btn-sm" onclick="restoreDraft()">下書きを読み込む</button>
+        <button class="btn btn-secondary btn-sm" onclick="clearDraft()">削除</button>
+      </div>
+    </div>
+  </div>
+  <div id="autosave-indicator" style="text-align:right;font-size:11px;color:var(--muted);margin-top:6px;min-height:16px"></div>
   <button class="btn btn-success" onclick="saveRecord()">保存する</button>
   <button class="btn btn-primary" style="margin-top:8px" onclick="previewPrint()">この内容をPDF出力</button>
   <div style="height:20px"></div>
@@ -245,13 +255,88 @@ function saveConfig(cfg) { localStorage.setItem('inspection_config', JSON.string
 // ===================== 初期化 =====================
 let currentStatuses = {};
 let currentRecordId = null;
+let draftTimer = null;
 
 window.onload = () => {
   document.getElementById('date').value = new Date().toISOString().slice(0,10);
   buildEntryForm();
+  checkDraftOnLoad();
   renderHistory();
   renderSettingsPage();
 };
+
+// ===================== 下書き =====================
+function checkDraftOnLoad() {
+  const draft = getDraft();
+  if (!draft) return;
+  const banner = document.getElementById('draft-banner');
+  const info = document.getElementById('draft-info');
+  const t = draft.savedAt ? new Date(draft.savedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+  info.textContent = `下書きあり：${fmtDate(draft.date||'')} ${draft.inspector||''} （${t}保存）`;
+  banner.style.display = 'block';
+}
+
+function getDraft() {
+  try { return JSON.parse(localStorage.getItem('inspection_draft')); } catch(e) { return null; }
+}
+
+function saveDraft() {
+  const data = collectForm();
+  data.savedAt = new Date().toISOString();
+  localStorage.setItem('inspection_draft', JSON.stringify(data));
+  const ind = document.getElementById('autosave-indicator');
+  const t = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
+  ind.textContent = `下書き自動保存済 ${t}`;
+}
+
+function restoreDraft() {
+  const draft = getDraft();
+  if (!draft) return;
+  // 基本情報を復元
+  if (draft.date)      document.getElementById('date').value      = draft.date;
+  if (draft.inspector) document.getElementById('inspector').value = draft.inspector;
+  if (draft.facility)  document.getElementById('facility').value  = draft.facility;
+  if (draft.weather) {
+    const sel = document.getElementById('weather');
+    [...sel.options].forEach(o => { if (o.value===draft.weather) sel.value=draft.weather; });
+  }
+  if (draft.room_temp) document.getElementById('room_temp').value = draft.room_temp;
+  if (draft.humidity)  document.getElementById('humidity').value  = draft.humidity;
+  if (draft.remarks)   document.getElementById('remarks').value   = draft.remarks;
+  // 状態ボタンを復元
+  if (draft.statuses) {
+    Object.entries(draft.statuses).forEach(([key, val]) => {
+      currentStatuses[key] = val;
+      document.querySelectorAll(`.status-group`).forEach(grp => {
+        const btn = grp.querySelector(`[onclick*="'${key}'"][onclick*="'${val}'"]`);
+        if (btn) {
+          grp.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+        }
+      });
+    });
+  }
+  // 計測値を復元
+  if (draft.measurements) {
+    Object.entries(draft.measurements).forEach(([key, val]) => {
+      const el = document.getElementById('m_'+key);
+      if (el) el.value = val;
+    });
+  }
+  document.getElementById('draft-banner').style.display = 'none';
+  document.getElementById('autosave-indicator').textContent = '下書きを読み込みました';
+}
+
+function clearDraft() {
+  localStorage.removeItem('inspection_draft');
+  document.getElementById('draft-banner').style.display = 'none';
+  document.getElementById('autosave-indicator').textContent = '下書きを削除しました';
+}
+
+function scheduleDraftSave() {
+  clearTimeout(draftTimer);
+  draftTimer = setTimeout(saveDraft, 5000);
+}
 
 // ===================== 入力フォーム生成 =====================
 function buildEntryForm() {
@@ -286,12 +371,16 @@ function buildEntryForm() {
     });
     container.appendChild(card);
   });
+  // 入力変更で自動保存をスケジュール
+  document.getElementById('page-entry').addEventListener('input', scheduleDraftSave);
+  document.getElementById('page-entry').addEventListener('change', scheduleDraftSave);
 }
 
 function setSt(key, val, el) {
   currentStatuses[key] = val;
   el.closest('.status-group').querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  scheduleDraftSave();
 }
 
 // ===================== タブ =====================
@@ -312,6 +401,7 @@ function saveRecord() {
   const id = Date.now().toString();
   recs[id] = { id, ...data, savedAt: new Date().toISOString() };
   localStorage.setItem('inspection_records', JSON.stringify(recs));
+  clearDraft();
   alert('保存しました');
   renderHistory();
 }
