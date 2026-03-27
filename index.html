@@ -281,7 +281,7 @@ const DEFAULT_CONFIG_BATTERY = [
     measurements:[] },
   { id:'bat_elec', title:'電圧測定',
     checks:[{key:'be1',label:'電圧異常の有無'}],
-    measurements:[{key:'bv_total',label:'全体電圧',unit:'V',phases:1},{key:'bv_cell',label:'セル電圧（代表値）',unit:'V',phases:1}] },
+    measurements:[{key:'bv_total',label:'全体電圧',unit:'V',phases:1},{key:'bv_cell',label:'セル電圧',unit:'V',phases:54,phasePrefix:'セル'}] },
   { id:'bat_chg', title:'充放電状態',
     checks:[{key:'bc1',label:'充電器の異常'},{key:'bc2',label:'表示灯の確認'},{key:'bc3',label:'充電状態(SOC)の確認'}],
     measurements:[{key:'b_soc',label:'充電残量(SOC)',unit:'%',phases:1},{key:'b_i',label:'充電電流',unit:'A',phases:1}] },
@@ -459,7 +459,7 @@ function buildEntryForm() {
       card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
       cat.measurements.forEach(m => {
         const phases = m.phases || 1;
-        const phaseLabels = getPhaseLabels(phases);
+        const phaseLabels = getPhaseLabels(phases, m.phasePrefix);
         const row = document.createElement('div');
         row.className = 'form-row';
         if (!phaseLabels) {
@@ -673,7 +673,7 @@ function buildRecordHTML(r) {
       if (val === undefined || val === '') return;
       if (Array.isArray(val)) {
         const phases = m.phases || val.length;
-        const labels = getPhaseLabels(phases) || val.map((_,i)=>`${i+1}`);
+        const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
         const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${v} ${esc(m.unit)}` : '').filter(Boolean).join('　');
         if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
       } else {
@@ -881,11 +881,15 @@ function renderSettingsPage(openSet) {
               </div>
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
-              <input type="number" min="1" max="12" value="${m.phases||1}"
-                style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+              <input type="number" min="1" max="999" value="${m.phases||1}"
+                style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
                 title="入力欄の数" placeholder="数"
                 onchange="renameMeas(${ci},${mi},'phases',+this.value||1)">
               <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
+              <input type="text" value="${esc(m.phasePrefix||'')}"
+                style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                placeholder="接頭語" title="ラベルの接頭語（例：セル）"
+                onchange="renameMeas(${ci},${mi},'phasePrefix',this.value)">
               <button class="btn btn-warning btn-sm" onclick="dupMeas(${ci},${mi})">複製</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMeas(${ci},${mi})">削除</button>
             </div>`).join('')}
@@ -893,10 +897,13 @@ function renderSettingsPage(openSet) {
         <div class="add-row" style="flex-wrap:wrap;gap:4px">
           <input type="text" id="new-meas-label-${ci}" placeholder="ラベル (例: 電圧)">
           <input type="text" class="unit-input" id="new-meas-unit-${ci}" placeholder="単位">
-          <input type="number" min="1" max="12" value="1" id="new-meas-phases-${ci}"
-            style="width:52px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+          <input type="number" min="1" max="999" value="1" id="new-meas-phases-${ci}"
+            style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
             title="入力欄の数" placeholder="数">
           <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
+          <input type="text" id="new-meas-prefix-${ci}"
+            style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            placeholder="接頭語" title="ラベルの接頭語（例：セル）">
           <button class="btn btn-primary btn-sm" onclick="addMeas(${ci})">追加</button>
         </div>
       </div>`;
@@ -987,9 +994,12 @@ function renameCheck(ci, ii, val) { modifyConfigSilent(cfg => { cfg[ci].checks[i
 
 function addMeas(ci) {
   const label  = document.getElementById('new-meas-label-'+ci).value.trim(); if (!label) return;
-  const unit   = document.getElementById('new-meas-unit-'+ci).value.trim();
-  const phases = +(document.getElementById('new-meas-phases-'+ci).value);
-  modifyConfig(cfg => cfg[ci].measurements.push({ key: 'm_'+Date.now(), label, unit, phases }));
+  const unit        = document.getElementById('new-meas-unit-'+ci).value.trim();
+  const phases      = +(document.getElementById('new-meas-phases-'+ci).value) || 1;
+  const phasePrefix = document.getElementById('new-meas-prefix-'+ci).value.trim();
+  const entry = { key: 'm_'+Date.now(), label, unit, phases };
+  if (phasePrefix) entry.phasePrefix = phasePrefix;
+  modifyConfig(cfg => cfg[ci].measurements.push(entry));
 }
 function dupMeas(ci, mi) {
   modifyConfig(cfg => {
@@ -1010,11 +1020,14 @@ function resetConfig() {
   renderSettingsPage(); buildEntryForm();
 }
 
-function getPhaseLabels(n) {
+function getPhaseLabels(n, prefix) {
   if (!n || n <= 1) return null;
-  if (n === 2) return ['L1', 'L2'];
-  if (n === 3) return ['R相', 'S相', 'T相'];
-  return Array.from({length: n}, (_, i) => `${i+1}`);
+  if (!prefix) {
+    if (n === 2) return ['L1', 'L2'];
+    if (n === 3) return ['R相', 'S相', 'T相'];
+  }
+  const p = prefix || '';
+  return Array.from({length: n}, (_, i) => `${p}${i+1}`);
 }
 
 function esc(s) {
