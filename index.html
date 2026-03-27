@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>高圧受電設備 日常点検記録</title>
+<style>
+  :root {
+    --primary: #1a5276;
+    --primary-light: #2e86c1;
+    --good: #1e8449;
+    --caution: #d4ac0d;
+    --repair: #c0392b;
+    --bg: #f4f6f7;
+    --card: #ffffff;
+    --border: #d5d8dc;
+    --text: #2c3e50;
+    --text-light: #7f8c8d;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Hiragino Sans', 'Meiryo', sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+
+  /* Header */
+  header { background: var(--primary); color: white; padding: 12px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+  header h1 { font-size: 17px; font-weight: bold; }
+  header p { font-size: 12px; opacity: 0.8; margin-top: 2px; }
+
+  /* Tabs */
+  .tabs { display: flex; background: var(--primary); }
+  .tab { flex: 1; padding: 10px; text-align: center; color: rgba(255,255,255,0.7); cursor: pointer; font-size: 14px; border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .tab.active { color: white; border-bottom-color: #f39c12; font-weight: bold; }
+
+  /* Main */
+  .page { display: none; padding: 12px; max-width: 700px; margin: 0 auto; }
+  .page.active { display: block; }
+
+  /* Card */
+  .card { background: var(--card); border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+  .card-title { font-size: 14px; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 12px; }
+
+  /* Form */
+  .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; }
+  .form-row label { font-size: 13px; color: var(--text-light); min-width: 80px; flex-shrink: 0; }
+  .form-row input[type=text], .form-row input[type=date], .form-row input[type=number], .form-row select, .form-row textarea {
+    flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit; background: #fafafa;
+  }
+  .form-row textarea { width: 100%; min-height: 70px; resize: vertical; }
+  .unit { font-size: 12px; color: var(--text-light); white-space: nowrap; }
+
+  /* Status toggle */
+  .status-group { display: flex; gap: 6px; flex: 1; }
+  .status-btn { flex: 1; padding: 7px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; background: #f8f9fa; transition: all 0.15s; user-select: none; }
+  .status-btn.good.active { background: var(--good); color: white; border-color: var(--good); }
+  .status-btn.caution.active { background: var(--caution); color: white; border-color: var(--caution); }
+  .status-btn.repair.active { background: var(--repair); color: white; border-color: var(--repair); }
+  .status-btn.na.active { background: #7f8c8d; color: white; border-color: #7f8c8d; }
+
+  /* Buttons */
+  .btn { display: inline-block; padding: 12px 20px; border-radius: 8px; border: none; cursor: pointer; font-size: 15px; font-weight: bold; text-align: center; width: 100%; margin-top: 6px; }
+  .btn-primary { background: var(--primary-light); color: white; }
+  .btn-success { background: var(--good); color: white; }
+  .btn-danger { background: var(--repair); color: white; }
+  .btn-secondary { background: #7f8c8d; color: white; }
+  .btn-small { padding: 6px 12px; font-size: 13px; width: auto; border-radius: 6px; }
+
+  /* History */
+  .history-item { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); cursor: pointer; border-left: 4px solid var(--primary-light); }
+  .history-item:hover { background: #eaf4fb; }
+  .history-date { font-size: 15px; font-weight: bold; color: var(--primary); }
+  .history-meta { font-size: 13px; color: var(--text-light); margin-top: 4px; }
+  .history-badges { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px; }
+  .badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+  .badge-caution { background: #fef9e7; color: #d4ac0d; border: 1px solid #d4ac0d; }
+  .badge-repair { background: #fdedec; color: #c0392b; border: 1px solid #c0392b; }
+  .badge-good { background: #eafaf1; color: #1e8449; border: 1px solid #1e8449; }
+
+  /* Modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; }
+  .modal-overlay.active { display: flex; align-items: flex-start; justify-content: center; overflow-y: auto; padding: 20px 0; }
+  .modal { background: white; border-radius: 10px; width: 95%; max-width: 680px; padding: 16px; margin: auto; }
+  .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
+  .modal-title { font-size: 16px; font-weight: bold; color: var(--primary); }
+  .close-btn { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--text-light); line-height: 1; }
+
+  /* Print */
+  @media print {
+    header, .tabs, .btn, #print-actions { display: none !important; }
+    .modal-overlay { display: block !important; position: static !important; padding: 0 !important; background: none !important; overflow: visible !important; }
+    .modal { width: 100% !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
+    .close-btn { display: none !important; }
+    body { background: white; font-size: 12px; }
+    .page { display: none !important; }
+    .print-title { display: block !important; font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+    .print-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .print-table th, .print-table td { border: 1px solid #333; padding: 5px 8px; }
+    .print-table th { background: #d6eaf8; }
+    .status-cell-good { color: #1e8449; font-weight: bold; }
+    .status-cell-caution { color: #d4ac0d; font-weight: bold; }
+    .status-cell-repair { color: #c0392b; font-weight: bold; }
+    .status-cell-na { color: #7f8c8d; }
+  }
+  .print-title { display: none; }
+  .no-records { text-align: center; color: var(--text-light); padding: 30px; font-size: 14px; }
+  .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+  .search-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>高圧受電設備 日常点検記録</h1>
+  <p>スマートフォン対応 点検管理システム</p>
+</header>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('entry')">新規入力</div>
+  <div class="tab" onclick="showTab('history')">履歴・出力</div>
+</div>
+
+<!-- 新規入力ページ -->
+<div class="page active" id="page-entry">
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">基本情報</div>
+    <div class="form-row">
+      <label>点検日</label>
+      <input type="date" id="date">
+    </div>
+    <div class="form-row">
+      <label>点検者名</label>
+      <input type="text" id="inspector" placeholder="氏名を入力">
+    </div>
+    <div class="form-row">
+      <label>設備名称</label>
+      <input type="text" id="facility" placeholder="例：第1キュービクル">
+    </div>
+    <div class="form-row">
+      <label>天候</label>
+      <select id="weather">
+        <option value="晴">晴</option>
+        <option value="曇">曇</option>
+        <option value="雨">雨</option>
+        <option value="雪">雪</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <label>室温</label>
+      <input type="number" id="room_temp" placeholder="0" step="0.1" style="max-width:90px">
+      <span class="unit">℃</span>
+    </div>
+    <div class="form-row">
+      <label>湿度</label>
+      <input type="number" id="humidity" placeholder="0" step="1" style="max-width:90px">
+      <span class="unit">%</span>
+    </div>
+  </div>
+
+  <!-- 受電設備全般 -->
+  <div class="card">
+    <div class="card-title">① 受電設備全般</div>
+    <div id="checks-general"></div>
+  </div>
+
+  <!-- 高圧ケーブル・母線 -->
+  <div class="card">
+    <div class="card-title">② 高圧ケーブル・母線</div>
+    <div id="checks-cable"></div>
+  </div>
+
+  <!-- 断路器・負荷開閉器 -->
+  <div class="card">
+    <div class="card-title">③ 断路器 (DS) / 負荷開閉器 (LBS)</div>
+    <div id="checks-ds"></div>
+  </div>
+
+  <!-- 遮断器 -->
+  <div class="card">
+    <div class="card-title">④ 遮断器 (VCB / ACB)</div>
+    <div id="checks-vcb"></div>
+  </div>
+
+  <!-- 変圧器 -->
+  <div class="card">
+    <div class="card-title">⑤ 変圧器 (TR)</div>
+    <div id="checks-tr"></div>
+    <div class="form-row">
+      <label>一次電圧</label>
+      <input type="number" id="tr_v1" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">V</span>
+    </div>
+    <div class="form-row">
+      <label>二次電圧</label>
+      <input type="number" id="tr_v2" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">V</span>
+    </div>
+    <div class="form-row">
+      <label>一次電流</label>
+      <input type="number" id="tr_i1" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">A</span>
+    </div>
+    <div class="form-row">
+      <label>二次電流</label>
+      <input type="number" id="tr_i2" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">A</span>
+    </div>
+    <div class="form-row">
+      <label>油温</label>
+      <input type="number" id="tr_oil_temp" placeholder="—" step="0.1" style="max-width:100px">
+      <span class="unit">℃ (油入のみ)</span>
+    </div>
+  </div>
+
+  <!-- コンデンサ -->
+  <div class="card">
+    <div class="card-title">⑥ 高圧コンデンサ (SC)</div>
+    <div id="checks-sc"></div>
+    <div class="form-row">
+      <label>電流値</label>
+      <input type="number" id="sc_current" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">A</span>
+    </div>
+  </div>
+
+  <!-- 避雷器・計器 -->
+  <div class="card">
+    <div class="card-title">⑦ 避雷器 (LA) / 計器類</div>
+    <div id="checks-la"></div>
+    <div class="form-row">
+      <label>電圧計</label>
+      <input type="number" id="meter_v" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">V</span>
+    </div>
+    <div class="form-row">
+      <label>電流計</label>
+      <input type="number" id="meter_i" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">A</span>
+    </div>
+    <div class="form-row">
+      <label>電力計</label>
+      <input type="number" id="meter_kw" placeholder="0" step="1" style="max-width:100px">
+      <span class="unit">kW</span>
+    </div>
+    <div class="form-row">
+      <label>力率</label>
+      <input type="number" id="meter_pf" placeholder="0.00" step="0.01" min="0" max="1" style="max-width:100px">
+      <span class="unit"></span>
+    </div>
+  </div>
+
+  <!-- 保護継電器 -->
+  <div class="card">
+    <div class="card-title">⑧ 保護継電器</div>
+    <div id="checks-relay"></div>
+  </div>
+
+  <!-- 低圧盤 -->
+  <div class="card">
+    <div class="card-title">⑨ 低圧盤</div>
+    <div id="checks-lv"></div>
+    <div class="form-row">
+      <label>低圧電圧</label>
+      <input type="number" id="lv_voltage" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">V</span>
+    </div>
+    <div class="form-row">
+      <label>低圧電流</label>
+      <input type="number" id="lv_current" placeholder="0" step="0.1" style="max-width:100px">
+      <span class="unit">A</span>
+    </div>
+  </div>
+
+  <!-- キュービクル・電気室 -->
+  <div class="card">
+    <div class="card-title">⑩ キュービクル・電気室</div>
+    <div id="checks-cubicle"></div>
+  </div>
+
+  <!-- 特記事項 -->
+  <div class="card">
+    <div class="card-title">特記事項</div>
+    <div class="form-row" style="flex-direction:column; align-items:stretch;">
+      <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
+    </div>
+  </div>
+
+  <button class="btn btn-success" onclick="saveRecord()">保存する</button>
+  <button class="btn btn-primary" style="margin-top:8px" onclick="previewAndPrint(null)">この内容をPDF出力</button>
+  <div style="height:20px"></div>
+</div>
+
+<!-- 履歴ページ -->
+<div class="page" id="page-history">
+  <div style="margin-top:12px">
+    <div class="search-bar">
+      <input type="month" id="search-month" onchange="renderHistory()">
+      <button class="btn btn-secondary btn-small" onclick="document.getElementById('search-month').value=''; renderHistory()">全て</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- 詳細モーダル -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-title">点検記録詳細</span>
+      <button class="close-btn" onclick="closeModal()">×</button>
+    </div>
+    <div id="print-actions" style="display:flex;gap:8px;margin-bottom:12px;">
+      <button class="btn btn-primary btn-small" onclick="printRecord()">PDF出力・印刷</button>
+      <button class="btn btn-danger btn-small" onclick="deleteCurrentRecord()">削除</button>
+    </div>
+    <div class="print-title" id="print-title">高圧受電設備 日常点検記録</div>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<script>
+// === 点検項目定義 ===
+const checkGroups = {
+  general: [
+    { key: 'g_noise',   label: '異常音' },
+    { key: 'g_smell',   label: '異臭' },
+    { key: 'g_heat',    label: '異常発熱' },
+    { key: 'g_color',   label: '変色・焦げ' },
+    { key: 'g_damage',  label: '損傷・汚損' },
+  ],
+  cable: [
+    { key: 'c_damage',  label: '損傷・断線の有無' },
+    { key: 'c_joint',   label: '接続部の異常' },
+    { key: 'c_support', label: '支持物の異常' },
+  ],
+  ds: [
+    { key: 'ds_display', label: '動作表示の確認' },
+    { key: 'ds_contact', label: '接触部の異常' },
+    { key: 'ds_noise',   label: '異常音・異臭' },
+  ],
+  vcb: [
+    { key: 'vcb_display', label: '動作表示の確認' },
+    { key: 'vcb_count',   label: '動作回数計の確認' },
+    { key: 'vcb_noise',   label: '異常音・異臭' },
+    { key: 'vcb_damage',  label: '外観異常' },
+  ],
+  tr: [
+    { key: 'tr_noise',   label: '異常音・異臭' },
+    { key: 'tr_oil',     label: '漏油の有無' },
+    { key: 'tr_color',   label: '変色・過熱の有無' },
+    { key: 'tr_damage',  label: '外観異常' },
+  ],
+  sc: [
+    { key: 'sc_noise',   label: '異常音・異臭' },
+    { key: 'sc_bulge',   label: '膨らみ・液漏れ' },
+    { key: 'sc_damage',  label: '外観異常' },
+  ],
+  la: [
+    { key: 'la_damage',  label: '避雷器 外観異常' },
+    { key: 'la_meter',   label: '計器類の指示確認' },
+    { key: 'la_relay',   label: '保護継電器 動作表示' },
+  ],
+  relay: [
+    { key: 'ry_display', label: '動作表示の確認' },
+    { key: 'ry_lamp',    label: '表示灯の点灯確認' },
+    { key: 'ry_abnormal',label: '異常表示の有無' },
+  ],
+  lv: [
+    { key: 'lv_breaker', label: 'ブレーカー状態確認' },
+    { key: 'lv_noise',   label: '異常音・異臭' },
+    { key: 'lv_damage',  label: '外観異常' },
+  ],
+  cubicle: [
+    { key: 'cu_vent',    label: '換気・通風状態' },
+    { key: 'cu_lock',    label: '扉の施錠確認' },
+    { key: 'cu_water',   label: '浸水・結露の有無' },
+    { key: 'cu_pest',    label: '害虫・鳥獣侵入の有無' },
+    { key: 'cu_clean',   label: '清掃状態' },
+  ],
+};
+
+const statusLabels = { good: '良好', caution: '要注意', repair: '要修理', na: 'N/A' };
+
+// === 状態管理 ===
+let currentStatuses = {};
+let currentRecordId = null;
+
+// === 初期化 ===
+window.onload = () => {
+  // 今日の日付をセット
+  document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+  // 点検項目を生成
+  Object.entries(checkGroups).forEach(([group, items]) => {
+    const container = document.getElementById('checks-' + group);
+    if (!container) return;
+    items.forEach(item => {
+      container.appendChild(createCheckRow(item.key, item.label));
+      currentStatuses[item.key] = 'good';
+    });
+  });
+  renderHistory();
+};
+
+function createCheckRow(key, label) {
+  const row = document.createElement('div');
+  row.className = 'form-row';
+  row.innerHTML = `
+    <label style="min-width:140px">${label}</label>
+    <div class="status-group">
+      <div class="status-btn good active" onclick="setStatus('${key}','good',this)">良好</div>
+      <div class="status-btn caution" onclick="setStatus('${key}','caution',this)">要注意</div>
+      <div class="status-btn repair" onclick="setStatus('${key}','repair',this)">要修理</div>
+      <div class="status-btn na" onclick="setStatus('${key}','na',this)">N/A</div>
+    </div>`;
+  return row;
+}
+
+function setStatus(key, status, el) {
+  currentStatuses[key] = status;
+  const group = el.closest('.status-group');
+  group.querySelectorAll('.status-btn').forEach(btn => {
+    btn.classList.remove('active');
+  });
+  el.classList.add('active');
+}
+
+// === タブ切り替え ===
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.tab:nth-child(${tab === 'entry' ? 1 : 2})`).classList.add('active');
+  document.getElementById('page-' + tab).classList.add('active');
+  if (tab === 'history') renderHistory();
+}
+
+// === データ保存 ===
+function saveRecord() {
+  const data = collectFormData();
+  if (!data.date) { alert('点検日を入力してください'); return; }
+  if (!data.inspector) { alert('点検者名を入力してください'); return; }
+
+  const records = getRecords();
+  const id = Date.now().toString();
+  records[id] = { id, ...data, savedAt: new Date().toISOString() };
+  localStorage.setItem('inspection_records', JSON.stringify(records));
+  alert('保存しました');
+  renderHistory();
+}
+
+function collectFormData() {
+  return {
+    date: document.getElementById('date').value,
+    inspector: document.getElementById('inspector').value,
+    facility: document.getElementById('facility').value,
+    weather: document.getElementById('weather').value,
+    room_temp: document.getElementById('room_temp').value,
+    humidity: document.getElementById('humidity').value,
+    statuses: { ...currentStatuses },
+    tr_v1: document.getElementById('tr_v1').value,
+    tr_v2: document.getElementById('tr_v2').value,
+    tr_i1: document.getElementById('tr_i1').value,
+    tr_i2: document.getElementById('tr_i2').value,
+    tr_oil_temp: document.getElementById('tr_oil_temp').value,
+    sc_current: document.getElementById('sc_current').value,
+    meter_v: document.getElementById('meter_v').value,
+    meter_i: document.getElementById('meter_i').value,
+    meter_kw: document.getElementById('meter_kw').value,
+    meter_pf: document.getElementById('meter_pf').value,
+    lv_voltage: document.getElementById('lv_voltage').value,
+    lv_current: document.getElementById('lv_current').value,
+    remarks: document.getElementById('remarks').value,
+  };
+}
+
+function getRecords() {
+  try { return JSON.parse(localStorage.getItem('inspection_records') || '{}'); }
+  catch(e) { return {}; }
+}
+
+// === 履歴表示 ===
+function renderHistory() {
+  const records = getRecords();
+  const list = document.getElementById('history-list');
+  const filterMonth = document.getElementById('search-month').value;
+
+  let sorted = Object.values(records).sort((a, b) => b.date.localeCompare(a.date));
+  if (filterMonth) sorted = sorted.filter(r => r.date.startsWith(filterMonth));
+
+  if (sorted.length === 0) {
+    list.innerHTML = '<div class="no-records">点検記録がありません</div>';
+    return;
+  }
+
+  list.innerHTML = sorted.map(r => {
+    const st = r.statuses || {};
+    const cautionItems = Object.values(st).filter(v => v === 'caution').length;
+    const repairItems = Object.values(st).filter(v => v === 'repair').length;
+    const badges = [
+      repairItems > 0 ? `<span class="badge badge-repair">要修理 ${repairItems}件</span>` : '',
+      cautionItems > 0 ? `<span class="badge badge-caution">要注意 ${cautionItems}件</span>` : '',
+      (repairItems === 0 && cautionItems === 0) ? '<span class="badge badge-good">異常なし</span>' : '',
+    ].join('');
+    return `<div class="history-item" onclick="openRecord('${r.id}')">
+      <div class="history-date">${formatDate(r.date)}</div>
+      <div class="history-meta">${r.inspector || '—'} / ${r.facility || '—'} / ${r.weather || '—'}</div>
+      <div class="history-badges">${badges}</div>
+    </div>`;
+  }).join('');
+}
+
+function formatDate(d) {
+  if (!d) return '—';
+  const [y, m, day] = d.split('-');
+  return `${y}年${parseInt(m)}月${parseInt(day)}日`;
+}
+
+// === 詳細モーダル ===
+function openRecord(id) {
+  const records = getRecords();
+  const r = records[id];
+  if (!r) return;
+  currentRecordId = id;
+  document.getElementById('modal-title').textContent = `点検記録 ${formatDate(r.date)}`;
+  document.getElementById('print-title').textContent = `高圧受電設備 日常点検記録　${formatDate(r.date)}`;
+  document.getElementById('modal-content').innerHTML = buildRecordHTML(r);
+  document.getElementById('modal').classList.add('active');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  currentRecordId = null;
+}
+
+function buildRecordHTML(r) {
+  const st = r.statuses || {};
+  const statusCell = (key) => {
+    const v = st[key] || 'good';
+    const cls = `status-cell-${v}`;
+    return `<td class="${cls}">${statusLabels[v] || v}</td>`;
+  };
+
+  const measureRow = (label, value, unit) =>
+    value ? `<tr><td>${label}</td><td colspan="2">${value} ${unit}</td></tr>` : '';
+
+  const allCheckItems = Object.entries(checkGroups).flatMap(([g, items]) => items);
+  const checkRows = allCheckItems.map(item =>
+    `<tr><td>${item.label}</td>${statusCell(item.key)}</tr>`
+  ).join('');
+
+  return `
+  <table class="print-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px">
+    <tr style="background:#d6eaf8"><th colspan="2">基本情報</th></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc;width:45%">点検日</td><td style="padding:5px 8px;border:1px solid #ccc">${formatDate(r.date)}</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">点検者</td><td style="padding:5px 8px;border:1px solid #ccc">${r.inspector || '—'}</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">設備名称</td><td style="padding:5px 8px;border:1px solid #ccc">${r.facility || '—'}</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">天候</td><td style="padding:5px 8px;border:1px solid #ccc">${r.weather || '—'}</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">室温</td><td style="padding:5px 8px;border:1px solid #ccc">${r.room_temp || '—'} ℃</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">湿度</td><td style="padding:5px 8px;border:1px solid #ccc">${r.humidity || '—'} %</td></tr>
+  </table>
+
+  <table class="print-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px">
+    <tr style="background:#d6eaf8"><th colspan="2">点検結果</th></tr>
+    ${checkRows.replace(/style=""/g, '').split('<tr>').map(s => s ? `<tr style="">${s}` : '').join('').replace(/<tr style=""><\/tr>/g,'').replace(/<td>/g,'<td style="padding:5px 8px;border:1px solid #ccc">').replace(/<\/td><td /g,'</td><td style="padding:5px 8px;border:1px solid #ccc" ')}
+  </table>
+
+  <table class="print-table" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px">
+    <tr style="background:#d6eaf8"><th colspan="2">計測値</th></tr>
+    ${r.tr_v1 ? `<tr><td style="padding:5px 8px;border:1px solid #ccc;width:45%">変圧器 一次電圧</td><td style="padding:5px 8px;border:1px solid #ccc">${r.tr_v1} V</td></tr>` : ''}
+    ${r.tr_v2 ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">変圧器 二次電圧</td><td style="padding:5px 8px;border:1px solid #ccc">${r.tr_v2} V</td></tr>` : ''}
+    ${r.tr_i1 ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">変圧器 一次電流</td><td style="padding:5px 8px;border:1px solid #ccc">${r.tr_i1} A</td></tr>` : ''}
+    ${r.tr_i2 ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">変圧器 二次電流</td><td style="padding:5px 8px;border:1px solid #ccc">${r.tr_i2} A</td></tr>` : ''}
+    ${r.tr_oil_temp ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">油温</td><td style="padding:5px 8px;border:1px solid #ccc">${r.tr_oil_temp} ℃</td></tr>` : ''}
+    ${r.sc_current ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">コンデンサ電流</td><td style="padding:5px 8px;border:1px solid #ccc">${r.sc_current} A</td></tr>` : ''}
+    ${r.meter_v ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">電圧計</td><td style="padding:5px 8px;border:1px solid #ccc">${r.meter_v} V</td></tr>` : ''}
+    ${r.meter_i ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">電流計</td><td style="padding:5px 8px;border:1px solid #ccc">${r.meter_i} A</td></tr>` : ''}
+    ${r.meter_kw ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">電力計</td><td style="padding:5px 8px;border:1px solid #ccc">${r.meter_kw} kW</td></tr>` : ''}
+    ${r.meter_pf ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">力率</td><td style="padding:5px 8px;border:1px solid #ccc">${r.meter_pf}</td></tr>` : ''}
+    ${r.lv_voltage ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">低圧電圧</td><td style="padding:5px 8px;border:1px solid #ccc">${r.lv_voltage} V</td></tr>` : ''}
+    ${r.lv_current ? `<tr><td style="padding:5px 8px;border:1px solid #ccc">低圧電流</td><td style="padding:5px 8px;border:1px solid #ccc">${r.lv_current} A</td></tr>` : ''}
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">室温</td><td style="padding:5px 8px;border:1px solid #ccc">${r.room_temp || '—'} ℃</td></tr>
+    <tr><td style="padding:5px 8px;border:1px solid #ccc">湿度</td><td style="padding:5px 8px;border:1px solid #ccc">${r.humidity || '—'} %</td></tr>
+  </table>
+
+  <table class="print-table" style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr style="background:#d6eaf8"><th>特記事項</th></tr>
+    <tr><td style="padding:8px;border:1px solid #ccc;min-height:60px;white-space:pre-wrap">${r.remarks || '（なし）'}</td></tr>
+  </table>
+  <div style="margin-top:10px;font-size:11px;color:#888;text-align:right">保存日時：${r.savedAt ? new Date(r.savedAt).toLocaleString('ja-JP') : '—'}</div>
+  `;
+}
+
+function printRecord() {
+  window.print();
+}
+
+function previewAndPrint(id) {
+  if (id) {
+    openRecord(id);
+    setTimeout(() => window.print(), 300);
+  } else {
+    const data = collectFormData();
+    if (!data.date) { alert('点検日を入力してください'); return; }
+    data.id = 'preview';
+    data.savedAt = new Date().toISOString();
+    document.getElementById('modal-title').textContent = `点検記録プレビュー ${formatDate(data.date)}`;
+    document.getElementById('print-title').textContent = `高圧受電設備 日常点検記録　${formatDate(data.date)}`;
+    document.getElementById('modal-content').innerHTML = buildRecordHTML(data);
+    document.getElementById('modal').classList.add('active');
+    setTimeout(() => window.print(), 300);
+  }
+}
+
+function deleteCurrentRecord() {
+  if (!currentRecordId) return;
+  if (!confirm('この記録を削除しますか？')) return;
+  const records = getRecords();
+  delete records[currentRecordId];
+  localStorage.setItem('inspection_records', JSON.stringify(records));
+  closeModal();
+  renderHistory();
+}
+</script>
+</body>
+</html>
