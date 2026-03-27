@@ -637,6 +637,7 @@ function renderSettingsPage(openSet) {
           <button class="btn btn-secondary btn-sm" style="padding:3px 7px" ${isLast?'disabled':''} onclick="moveCat(${ci},1)">▼</button>
         </div>
         <span class="setting-cat-title">${esc(cat.title)}</span>
+        <button class="btn btn-warning btn-sm" onclick="event.stopPropagation();dupCat(${ci})">複製</button>
         <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteCat(${ci})">削除</button>
       </div>
       <div class="setting-cat-body" id="cat-body-${ci}">
@@ -654,6 +655,7 @@ function renderSettingsPage(openSet) {
                 <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${ii===cat.checks.length-1?'disabled':''} onclick="moveCheck(${ci},${ii},1)">▼</button>
               </div>
               <input type="text" value="${esc(item.label)}" onchange="renameCheck(${ci},${ii},this.value)">
+              <button class="btn btn-warning btn-sm" onclick="dupCheck(${ci},${ii})">複製</button>
               <button class="btn btn-danger btn-sm" onclick="deleteCheck(${ci},${ii})">削除</button>
             </div>`).join('')}
         </div>
@@ -677,6 +679,7 @@ function renderSettingsPage(openSet) {
                 <option value="2" ${m.phases===2?'selected':''}>単相(L1/L2)</option>
                 <option value="3" ${m.phases===3?'selected':''}>三相(R/S/T)</option>
               </select>
+              <button class="btn btn-warning btn-sm" onclick="dupMeas(${ci},${mi})">複製</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMeas(${ci},${mi})">削除</button>
             </div>`).join('')}
         </div>
@@ -731,6 +734,20 @@ function addCategory() {
   renderSettingsPage(openStates);
   buildEntryForm();
 }
+function dupCat(ci) {
+  const openStates = getOpenCats();
+  const cfg = getConfig();
+  const copy = JSON.parse(JSON.stringify(cfg[ci]));
+  copy.id = 'cat_'+Date.now();
+  copy.title = copy.title + ' (コピー)';
+  copy.checks = copy.checks.map(c => ({...c, key: 'ck_'+Date.now()+'_'+Math.random().toString(36).slice(2)}));
+  copy.measurements = copy.measurements.map(m => ({...m, key: 'm_'+Date.now()+'_'+Math.random().toString(36).slice(2)}));
+  cfg.splice(ci + 1, 0, copy);
+  saveConfig(cfg);
+  openStates.add(ci + 1);
+  renderSettingsPage(openStates);
+  buildEntryForm();
+}
 function deleteCat(ci) {
   if (!confirm('このカテゴリを削除しますか？')) return;
   modifyConfig(cfg => cfg.splice(ci, 1));
@@ -748,6 +765,12 @@ function addCheck(ci) {
   inp.value = '';
   modifyConfig(cfg => cfg[ci].checks.push({ key: 'ck_'+Date.now(), label }));
 }
+function dupCheck(ci, ii) {
+  modifyConfig(cfg => {
+    const copy = {...cfg[ci].checks[ii], key: 'ck_'+Date.now()};
+    cfg[ci].checks.splice(ii + 1, 0, copy);
+  });
+}
 function deleteCheck(ci, ii) { modifyConfig(cfg => cfg[ci].checks.splice(ii,1)); }
 function moveCheck(ci, ii, dir) {
   modifyConfig(cfg => {
@@ -761,6 +784,12 @@ function addMeas(ci) {
   const unit   = document.getElementById('new-meas-unit-'+ci).value.trim();
   const phases = +(document.getElementById('new-meas-phases-'+ci).value);
   modifyConfig(cfg => cfg[ci].measurements.push({ key: 'm_'+Date.now(), label, unit, phases }));
+}
+function dupMeas(ci, mi) {
+  modifyConfig(cfg => {
+    const copy = {...cfg[ci].measurements[mi], key: 'm_'+Date.now()};
+    cfg[ci].measurements.splice(mi + 1, 0, copy);
+  });
 }
 function deleteMeas(ci, mi) { modifyConfig(cfg => cfg[ci].measurements.splice(mi,1)); }
 function moveMeas(ci, mi, dir) {
