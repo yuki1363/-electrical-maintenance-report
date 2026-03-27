@@ -110,14 +110,24 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
   .sc-na      { color: #7f8c8d; }
 }
 .print-title { display: none; }
+/* Equipment selector */
+.eq-bar { display:flex; background:#0e3460; overflow-x:auto; gap:2px; padding:6px 8px; }
+.eq-btn { flex-shrink:0; padding:6px 14px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
+.eq-btn.active { background:#f39c12; color:#fff; font-weight:bold; }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>高圧受電設備 日常点検記録</h1>
+  <h1 id="main-title">高圧受電設備 日常点検記録</h1>
   <p>スマートフォン対応 点検管理システム</p>
 </header>
+
+<div class="eq-bar" id="eq-bar">
+  <button class="eq-btn active" onclick="switchEquipment('main')">高圧受電設備</button>
+  <button class="eq-btn" onclick="switchEquipment('battery')">蓄電池</button>
+  <button class="eq-btn" onclick="switchEquipment('generator')">発電機</button>
+</div>
 
 <div class="tabs" id="tab-bar">
   <div class="tab active" onclick="showTab('entry')">新規入力</div>
@@ -244,14 +254,73 @@ const DEFAULT_CONFIG = [
     measurements:[] },
 ];
 
+const DEFAULT_CONFIG_BATTERY = [
+  { id:'bat_vis', title:'外観点検',
+    checks:[{key:'bv1',label:'外観異常・損傷'},{key:'bv2',label:'腐食・漏液の有無'},{key:'bv3',label:'端子の緩み・腐食'},{key:'bv4',label:'ラック・ケースの異常'},{key:'bv5',label:'配線の損傷・断線'}],
+    measurements:[] },
+  { id:'bat_elec', title:'電圧測定',
+    checks:[{key:'be1',label:'電圧異常の有無'}],
+    measurements:[{key:'bv_total',label:'全体電圧',unit:'V',phases:1},{key:'bv_cell',label:'セル電圧（代表値）',unit:'V',phases:1}] },
+  { id:'bat_chg', title:'充放電状態',
+    checks:[{key:'bc1',label:'充電器の異常'},{key:'bc2',label:'表示灯の確認'},{key:'bc3',label:'充電状態(SOC)の確認'}],
+    measurements:[{key:'b_soc',label:'充電残量(SOC)',unit:'%',phases:1},{key:'b_i',label:'充電電流',unit:'A',phases:1}] },
+  { id:'bat_temp', title:'温度管理',
+    checks:[{key:'bt1',label:'異常発熱の有無'}],
+    measurements:[{key:'b_temp',label:'電池温度',unit:'℃',phases:1},{key:'b_room',label:'室温',unit:'℃',phases:1}] },
+  { id:'bat_safe', title:'安全装置',
+    checks:[{key:'bs1',label:'保護装置の動作確認'},{key:'bs2',label:'換気装置の動作確認'},{key:'bs3',label:'消火設備の確認'}],
+    measurements:[] },
+];
+
+const DEFAULT_CONFIG_GENERATOR = [
+  { id:'gen_vis', title:'外観点検',
+    checks:[{key:'gv1',label:'外観異常・損傷'},{key:'gv2',label:'燃料漏れの有無'},{key:'gv3',label:'冷却水漏れの有無'},{key:'gv4',label:'オイル漏れの有無'},{key:'gv5',label:'排気系統の異常'}],
+    measurements:[] },
+  { id:'gen_fuel', title:'燃料・潤滑・冷却',
+    checks:[{key:'gf1',label:'燃料量の確認'},{key:'gf2',label:'潤滑油量の確認'},{key:'gf3',label:'冷却水量の確認'}],
+    measurements:[{key:'g_fuel',label:'燃料残量',unit:'L',phases:1},{key:'g_cool',label:'冷却水温度',unit:'℃',phases:1}] },
+  { id:'gen_elec', title:'電気出力',
+    checks:[{key:'ge1',label:'出力電圧の正常確認'},{key:'ge2',label:'出力電流の正常確認'},{key:'ge3',label:'周波数の正常確認'}],
+    measurements:[{key:'g_v',label:'出力電圧',unit:'V',phases:3},{key:'g_i',label:'出力電流',unit:'A',phases:3},{key:'g_hz',label:'周波数',unit:'Hz',phases:1},{key:'g_kw',label:'出力電力',unit:'kW',phases:1}] },
+  { id:'gen_run', title:'運転状態',
+    checks:[{key:'gr1',label:'異常音・異臭'},{key:'gr2',label:'異常振動'},{key:'gr3',label:'排気の状態'},{key:'gr4',label:'回転数の確認'}],
+    measurements:[{key:'g_rpm',label:'回転数',unit:'rpm',phases:1}] },
+  { id:'gen_auto', title:'自動起動装置',
+    checks:[{key:'ga1',label:'自動起動装置の動作確認'},{key:'ga2',label:'起動バッテリーの確認'},{key:'ga3',label:'表示灯の確認'}],
+    measurements:[{key:'g_batv',label:'起動バッテリー電圧',unit:'V',phases:1}] },
+  { id:'gen_misc', title:'定期確認',
+    checks:[{key:'gm1',label:'試運転記録の確認'},{key:'gm2',label:'前回指摘事項の改善確認'}],
+    measurements:[] },
+];
+
+const EQ_DEFAULTS = { main: DEFAULT_CONFIG, battery: DEFAULT_CONFIG_BATTERY, generator: DEFAULT_CONFIG_GENERATOR };
+const EQ_NAMES    = { main:'高圧受電設備', battery:'蓄電池', generator:'発電機' };
+
 const SL = { good:'良好', caution:'要注意', repair:'要修理', na:'N/A' };
 
 // ===================== 設定 =====================
+let activeEquipment = 'main';
+
+function cfgKey()  { return activeEquipment==='main' ? 'inspection_config'  : `inspection_config_${activeEquipment}`; }
+function recKey()  { return activeEquipment==='main' ? 'inspection_records' : `inspection_records_${activeEquipment}`; }
+function draftKey(){ return activeEquipment==='main' ? 'inspection_draft'   : `inspection_draft_${activeEquipment}`; }
+
 function getConfig() {
-  try { const c = JSON.parse(localStorage.getItem('inspection_config')); if (c) return c; } catch(e){}
-  return JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+  try { const c = JSON.parse(localStorage.getItem(cfgKey())); if (c) return c; } catch(e){}
+  return JSON.parse(JSON.stringify(EQ_DEFAULTS[activeEquipment] || DEFAULT_CONFIG));
 }
-function saveConfig(cfg) { localStorage.setItem('inspection_config', JSON.stringify(cfg)); }
+function saveConfig(cfg) { localStorage.setItem(cfgKey(), JSON.stringify(cfg)); }
+
+function switchEquipment(eq) {
+  activeEquipment = eq;
+  document.querySelectorAll('.eq-btn').forEach((b,i) => b.classList.toggle('active', ['main','battery','generator'][i]===eq));
+  document.getElementById('main-title').textContent = EQ_NAMES[eq] + ' 日常点検記録';
+  currentStatuses = {};
+  buildEntryForm();
+  checkDraftOnLoad();
+  renderHistory();
+  if (document.getElementById('page-settings').classList.contains('active')) renderSettingsPage();
+}
 
 // ===================== 初期化 =====================
 let currentStatuses = {};
@@ -278,13 +347,13 @@ function checkDraftOnLoad() {
 }
 
 function getDraft() {
-  try { return JSON.parse(localStorage.getItem('inspection_draft')); } catch(e) { return null; }
+  try { return JSON.parse(localStorage.getItem(draftKey())); } catch(e) { return null; }
 }
 
 function saveDraft() {
   const data = collectForm();
   data.savedAt = new Date().toISOString();
-  localStorage.setItem('inspection_draft', JSON.stringify(data));
+  localStorage.setItem(draftKey(), JSON.stringify(data));
   const ind = document.getElementById('autosave-indicator');
   const t = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   ind.textContent = `下書き自動保存済 ${t}`;
@@ -342,7 +411,7 @@ function restoreDraft() {
 }
 
 function clearDraft() {
-  localStorage.removeItem('inspection_draft');
+  localStorage.removeItem(draftKey());
   document.getElementById('draft-banner').style.display = 'none';
   document.getElementById('autosave-indicator').textContent = '下書きを削除しました';
 }
@@ -433,8 +502,8 @@ function saveRecord() {
   if (!data.inspector) { alert('点検者名を入力してください'); return; }
   const recs = getRecords();
   const id = Date.now().toString();
-  recs[id] = { id, ...data, savedAt: new Date().toISOString() };
-  localStorage.setItem('inspection_records', JSON.stringify(recs));
+  recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
+  localStorage.setItem(recKey(), JSON.stringify(recs));
   clearDraft();
   alert('保存しました');
   renderHistory();
@@ -475,7 +544,7 @@ function collectForm() {
 }
 
 function getRecords() {
-  try { return JSON.parse(localStorage.getItem('inspection_records') || '{}'); } catch(e) { return {}; }
+  try { return JSON.parse(localStorage.getItem(recKey()) || '{}'); } catch(e) { return {}; }
 }
 
 // ===================== 履歴 =====================
@@ -515,7 +584,7 @@ function openRecord(id) {
   if (!r) return;
   currentRecordId = id;
   document.getElementById('modal-title').textContent = `点検記録 ${fmtDate(r.date)}`;
-  document.getElementById('print-title').textContent = `高圧受電設備 日常点検記録　${fmtDate(r.date)}`;
+  document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]||EQ_NAMES.main} 日常点検記録　${fmtDate(r.date)}`;
   document.getElementById('modal-content').innerHTML = buildRecordHTML(r);
   document.getElementById('modal').classList.add('active');
 }
@@ -599,7 +668,7 @@ function deleteRecord() {
   if (!confirm('この記録を削除しますか？')) return;
   const recs = getRecords();
   delete recs[currentRecordId];
-  localStorage.setItem('inspection_records', JSON.stringify(recs));
+  localStorage.setItem(recKey(), JSON.stringify(recs));
   closeModal(); renderHistory();
 }
 
@@ -697,7 +766,7 @@ function importData(e) {
       if (data.records) {
         const existing = getRecords();
         const merged = { ...existing, ...data.records };
-        localStorage.setItem('inspection_records', JSON.stringify(merged));
+        localStorage.setItem(recKey(), JSON.stringify(merged));
       }
       if (data.config) saveConfig(data.config);
       alert(`インポート完了！\n記録：${Object.keys(data.records||{}).length}件`);
@@ -895,7 +964,7 @@ function moveMeas(ci, mi, dir) {
 function renameMeas(ci, mi, field, val) { modifyConfigSilent(cfg => { cfg[ci].measurements[mi][field] = val; }); }
 function resetConfig() {
   if (!confirm('設定をデフォルトに戻しますか？\n（記録データは消えません）')) return;
-  localStorage.removeItem('inspection_config');
+  localStorage.removeItem(cfgKey());
   renderSettingsPage(); buildEntryForm();
 }
 
