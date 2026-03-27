@@ -201,6 +201,7 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
     </div>
     <div id="print-actions" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="window.print()">PDF出力・印刷</button>
+      <button class="btn btn-warning btn-sm" id="repair-btn" onclick="showRepairDoc()">改修推奨資料</button>
       <button class="btn btn-danger btn-sm" onclick="deleteRecord()">削除</button>
     </div>
     <div class="print-title" id="print-title"></div>
@@ -330,6 +331,12 @@ function restoreDraft() {
       }
     });
   }
+  if (draft.categoryRemarks) {
+    Object.entries(draft.categoryRemarks).forEach(([id, val]) => {
+      const el = document.getElementById('cat-rem-'+id);
+      if (el && val) el.value = val;
+    });
+  }
   document.getElementById('draft-banner').style.display = 'none';
   document.getElementById('autosave-indicator').textContent = '下書きを読み込みました';
 }
@@ -389,6 +396,13 @@ function buildEntryForm() {
       }
       card.appendChild(row);
     });
+    // カテゴリ備考
+    const remRow = document.createElement('div');
+    remRow.style.cssText = 'margin-top:8px';
+    remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
+      <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
+        style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>`;
+    card.appendChild(remRow);
     container.appendChild(card);
   });
   // 入力変更で自動保存をスケジュール
@@ -451,6 +465,10 @@ function collectForm() {
     humidity: document.getElementById('humidity').value,
     statuses: {...currentStatuses},
     measurements,
+    categoryRemarks: Object.fromEntries(cfg.map(cat => {
+      const el = document.getElementById('cat-rem-'+cat.id);
+      return [cat.id, el ? el.value : ''];
+    })),
     remarks: document.getElementById('remarks').value,
     config: JSON.parse(JSON.stringify(cfg)),
   };
@@ -523,12 +541,16 @@ function buildRecordHTML(r) {
   // 点検結果
   html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
     ${th2('点検結果')}`;
+  const cr = r.categoryRemarks || {};
   cfg.forEach(cat => {
     html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
     cat.checks.forEach(item => {
       const v = st[item.key] || 'good';
       html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
     });
+    if (cr[cat.id]) {
+      html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
+    }
   });
   html += '</table>';
 
@@ -580,6 +602,81 @@ function deleteRecord() {
   delete recs[currentRecordId];
   localStorage.setItem('inspection_records', JSON.stringify(recs));
   closeModal(); renderHistory();
+}
+
+// ===================== 改修推奨資料 =====================
+function showRepairDoc() {
+  const r = currentRecordId ? getRecords()[currentRecordId] : null;
+  if (!r) return;
+  const html = buildRepairHTML(r);
+  document.getElementById('print-title').textContent = `改修推奨資料　${fmtDate(r.date)}`;
+  document.getElementById('modal-title').textContent = `改修推奨資料 ${fmtDate(r.date)}`;
+  document.getElementById('modal-content').innerHTML = html;
+  // ボタンを「点検記録に戻る」に切り替え
+  document.getElementById('repair-btn').textContent = '← 点検記録';
+  document.getElementById('repair-btn').onclick = () => openRecord(currentRecordId);
+}
+
+function buildRepairHTML(r) {
+  const cfg = r.config || getConfig();
+  const st = r.statuses || {};
+  const cr = r.categoryRemarks || {};
+  const td = (v,w,style) => `<td style="padding:5px 7px;border:1px solid #ccc${w?';width:'+w:''}${style?';'+style:''}">${v}</td>`;
+
+  const issues = [];
+  cfg.forEach(cat => {
+    cat.checks.forEach(item => {
+      const v = st[item.key];
+      if (v === 'caution' || v === 'repair') {
+        issues.push({ catTitle: cat.title, catId: cat.id, label: item.label, status: v });
+      }
+    });
+  });
+
+  if (!issues.length) {
+    return `<div style="text-align:center;padding:30px;color:var(--muted)">
+      要注意・要修理の項目はありません
+    </div>`;
+  }
+
+  const repairColor = { caution: '#d4ac0d', repair: '#c0392b' };
+  const repairBg    = { caution: '#fef9e7', repair: '#fdedec' };
+
+  let rows = issues.map((item, idx) => {
+    const rem = cr[item.catId] ? `<br><span style="font-size:11px;color:#666">備考：${esc(cr[item.catId])}</span>` : '';
+    return `<tr>
+      ${td(idx+1, '5%', 'text-align:center')}
+      ${td(esc(item.catTitle), '25%')}
+      ${td(esc(item.label))}
+      <td style="padding:5px 7px;border:1px solid #ccc;width:15%;font-weight:bold;color:${repairColor[item.status]};background:${repairBg[item.status]};text-align:center">${SL[item.status]}</td>
+      ${td(rem ? rem : '—')}
+    </tr>`;
+  }).join('');
+
+  return `
+  <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:10px">
+    <tr><td colspan="2" style="padding:4px 0;font-size:13px"><b>点検日：</b>${fmtDate(r.date)}</td>
+        <td colspan="3" style="padding:4px 0;font-size:13px"><b>設備：</b>${esc(r.facility||'—')}　<b>点検者：</b>${esc(r.inspector||'—')}</td></tr>
+  </table>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">
+    <thead>
+      <tr style="background:#d6eaf8">
+        <th style="padding:6px 7px;border:1px solid #ccc;width:5%">No.</th>
+        <th style="padding:6px 7px;border:1px solid #ccc;width:25%">カテゴリ</th>
+        <th style="padding:6px 7px;border:1px solid #ccc">点検項目</th>
+        <th style="padding:6px 7px;border:1px solid #ccc;width:15%">判定</th>
+        <th style="padding:6px 7px;border:1px solid #ccc">備考・対応メモ</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <table style="width:100%;border-collapse:collapse;font-size:13px">
+    <tr><th colspan="2" style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8;text-align:left">総合備考</th></tr>
+    <tr><td colspan="2" style="padding:8px;border:1px solid #ccc;min-height:60px;white-space:pre-wrap">${esc(r.remarks||'（なし）')}</td></tr>
+    <tr><th style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8;width:40%">確認者</th><td style="padding:8px;border:1px solid #ccc">&nbsp;</td></tr>
+    <tr><th style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8">対応期限</th><td style="padding:8px;border:1px solid #ccc">&nbsp;</td></tr>
+  </table>
+  <div style="margin-top:8px;font-size:11px;color:#aaa;text-align:right">要注意：${issues.filter(i=>i.status==='caution').length}件　要修理：${issues.filter(i=>i.status==='repair').length}件</div>`;
 }
 
 // ===================== エクスポート/インポート =====================
