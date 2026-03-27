@@ -110,6 +110,12 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
   .sc-na      { color: #7f8c8d; }
 }
 .print-title { display: none; }
+/* Sub-tabs */
+.sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+.sub-tab  { flex:1; padding:11px 4px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
+.sub-tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:bold; background:#f0f7ff; }
+.sub-page { display:none; }
+.sub-page.active { display:block; }
 /* Equipment selector */
 .eq-bar { display:flex; background:#0e3460; overflow-x:auto; gap:2px; padding:6px 8px; }
 .eq-btn { flex-shrink:0; padding:6px 14px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
@@ -149,12 +155,27 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
     <div class="form-row"><label>室温</label><input type="number" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span></div>
     <div class="form-row"><label>湿度</label><input type="number" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span></div>
   </div>
-  <div id="entry-categories"></div>
-  <div class="card">
-    <div class="card-title">特記事項</div>
-    <div class="form-row" style="flex-direction:column;align-items:stretch">
-      <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
+
+  <!-- サブタブ -->
+  <div class="sub-tabs">
+    <div class="sub-tab active" onclick="showSubTab('measure')">計測データ</div>
+    <div class="sub-tab" onclick="showSubTab('visual')">外観点検</div>
+  </div>
+
+  <!-- 計測データ -->
+  <div class="sub-page active" id="sub-measure">
+    <div id="entry-measurements"></div>
+    <div class="card">
+      <div class="card-title">特記事項</div>
+      <div class="form-row" style="flex-direction:column;align-items:stretch">
+        <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
+      </div>
     </div>
+  </div>
+
+  <!-- 外観点検 -->
+  <div class="sub-page" id="sub-visual">
+    <div id="entry-checks"></div>
   </div>
   <div id="draft-banner" style="display:none;background:#fef9e7;border:1px solid #d4ac0d;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -425,56 +446,70 @@ function scheduleDraftSave() {
 function buildEntryForm() {
   currentStatuses = {};
   const cfg = getConfig();
-  const container = document.getElementById('entry-categories');
-  container.innerHTML = '';
+  const measCont  = document.getElementById('entry-measurements');
+  const checkCont = document.getElementById('entry-checks');
+  measCont.innerHTML  = '';
+  checkCont.innerHTML = '';
+
   cfg.forEach(cat => {
-    const card = document.createElement('div');
-    card.className = 'card';
-    card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
-    cat.checks.forEach(item => {
-      currentStatuses[item.key] = currentStatuses[item.key] || 'good';
-      const row = document.createElement('div');
-      row.className = 'form-row';
-      row.innerHTML = `<label style="min-width:140px;font-size:13px;color:var(--muted)">${esc(item.label)}</label>
-        <div class="status-group">
-          <div class="status-btn good active"    onclick="setSt('${item.key}','good',this)">良好</div>
-          <div class="status-btn caution"        onclick="setSt('${item.key}','caution',this)">要注意</div>
-          <div class="status-btn repair"         onclick="setSt('${item.key}','repair',this)">要修理</div>
-          <div class="status-btn na"             onclick="setSt('${item.key}','na',this)">N/A</div>
-        </div>`;
-      card.appendChild(row);
-    });
-    cat.measurements.forEach(m => {
-      const phases = m.phases || 1;
-      const phaseLabels = getPhaseLabels(phases);
-      const row = document.createElement('div');
-      row.className = 'form-row';
-      if (!phaseLabels) {
-        row.innerHTML = `<label>${esc(m.label)}</label>
-          <input type="number" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
-          <span class="unit">${esc(m.unit)}</span>`;
-      } else {
-        const inputs = phaseLabels.map((lbl, i) =>
-          `<span style="font-size:12px;color:var(--muted);white-space:nowrap">${lbl}:
-           <input type="number" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
-           ${esc(m.unit)}</span>`
-        ).join(' ');
-        row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
-          <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>`;
-        row.style.flexWrap = 'wrap';
-      }
-      card.appendChild(row);
-    });
-    // カテゴリ備考
-    const remRow = document.createElement('div');
-    remRow.style.cssText = 'margin-top:8px';
-    remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
-      <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
-        style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>`;
-    card.appendChild(remRow);
-    container.appendChild(card);
+    // --- 計測データ カード ---
+    if (cat.measurements.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
+      cat.measurements.forEach(m => {
+        const phases = m.phases || 1;
+        const phaseLabels = getPhaseLabels(phases);
+        const row = document.createElement('div');
+        row.className = 'form-row';
+        if (!phaseLabels) {
+          row.innerHTML = `<label>${esc(m.label)}</label>
+            <input type="number" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
+            <span class="unit">${esc(m.unit)}</span>`;
+        } else {
+          const inputs = phaseLabels.map((lbl, i) =>
+            `<span style="font-size:12px;color:var(--muted);white-space:nowrap">${lbl}:
+             <input type="number" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
+             ${esc(m.unit)}</span>`
+          ).join(' ');
+          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>`;
+          row.style.flexWrap = 'wrap';
+        }
+        card.appendChild(row);
+      });
+      measCont.appendChild(card);
+    }
+
+    // --- 外観点検 カード ---
+    if (cat.checks.length > 0) {
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
+      cat.checks.forEach(item => {
+        currentStatuses[item.key] = currentStatuses[item.key] || 'good';
+        const row = document.createElement('div');
+        row.className = 'form-row';
+        row.innerHTML = `<label style="min-width:140px;font-size:13px;color:var(--muted)">${esc(item.label)}</label>
+          <div class="status-group">
+            <div class="status-btn good active"    onclick="setSt('${item.key}','good',this)">良好</div>
+            <div class="status-btn caution"        onclick="setSt('${item.key}','caution',this)">要注意</div>
+            <div class="status-btn repair"         onclick="setSt('${item.key}','repair',this)">要修理</div>
+            <div class="status-btn na"             onclick="setSt('${item.key}','na',this)">N/A</div>
+          </div>`;
+        card.appendChild(row);
+      });
+      // カテゴリ備考
+      const remRow = document.createElement('div');
+      remRow.style.cssText = 'margin-top:8px';
+      remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
+        <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
+          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>`;
+      card.appendChild(remRow);
+      checkCont.appendChild(card);
+    }
   });
-  // 入力変更で自動保存をスケジュール
+
   document.getElementById('page-entry').addEventListener('input', scheduleDraftSave);
   document.getElementById('page-entry').addEventListener('change', scheduleDraftSave);
 }
@@ -484,6 +519,13 @@ function setSt(key, val, el) {
   el.closest('.status-group').querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   scheduleDraftSave();
+}
+
+// ===================== サブタブ =====================
+function showSubTab(name) {
+  document.querySelectorAll('.sub-tab').forEach((t,i) => t.classList.toggle('active', ['measure','visual'][i]===name));
+  document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
+  document.getElementById('sub-'+name).classList.add('active');
 }
 
 // ===================== タブ =====================
