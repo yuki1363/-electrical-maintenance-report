@@ -490,12 +490,12 @@ function buildEntryForm() {
         currentStatuses[item.key] = currentStatuses[item.key] || 'good';
         const row = document.createElement('div');
         row.className = 'form-row';
-        row.innerHTML = `<label style="min-width:140px;font-size:13px;color:var(--muted)">${esc(item.label)}</label>
+        row.style.cssText = 'flex-direction:column;align-items:stretch;gap:4px';
+        row.innerHTML = `<label style="font-size:13px;color:var(--text)">${esc(item.label)}</label>
           <div class="status-group">
-            <div class="status-btn good active"    onclick="setSt('${item.key}','good',this)">良好</div>
-            <div class="status-btn caution"        onclick="setSt('${item.key}','caution',this)">要注意</div>
-            <div class="status-btn repair"         onclick="setSt('${item.key}','repair',this)">要修理</div>
-            <div class="status-btn na"             onclick="setSt('${item.key}','na',this)">N/A</div>
+            <div class="status-btn good active" onclick="setSt('${item.key}','good',this)">良好</div>
+            <div class="status-btn caution"     onclick="setSt('${item.key}','caution',this)">要注意</div>
+            <div class="status-btn repair"      onclick="setSt('${item.key}','repair',this)">要修理</div>
           </div>`;
         card.appendChild(row);
       });
