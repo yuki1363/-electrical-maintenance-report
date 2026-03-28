@@ -31,7 +31,7 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .page { display: none; padding: 12px; max-width: 700px; margin: 0 auto; }
 .page.active { display: block; }
 
-.card { background: var(--card); border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.card { background: var(--card); border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.1); overflow: visible; }
 .card-title { font-size: 14px; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 12px; }
 
 .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
@@ -42,8 +42,8 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .form-row textarea { width: 100%; min-height: 70px; resize: vertical; }
 .unit { font-size: 12px; color: var(--muted); white-space: nowrap; }
 
-.status-group { display: flex; gap: 5px; flex: 1; min-width: 200px; }
-.status-btn { flex: 1; padding: 7px 2px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 12px; background: #f8f9fa; transition: all .15s; user-select: none; }
+.status-group { display: flex; gap: 5px; flex: 1; }
+.status-btn { flex: 1; padding: 7px 2px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 12px; background: #f8f9fa; transition: all .15s; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .status-btn.good.active    { background: var(--good);    color: #fff; border-color: var(--good); }
 .status-btn.caution.active { background: var(--caution); color: #fff; border-color: var(--caution); }
 .status-btn.repair.active  { background: var(--repair);  color: #fff; border-color: var(--repair); }
@@ -81,11 +81,11 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .setting-cat-body { padding: 12px 14px; display: none; }
 .setting-cat-body.open { display: block; }
 .setting-section-label { font-size: 12px; color: var(--muted); font-weight: bold; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
-.setting-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
-.setting-item input[type=text] { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+.setting-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
+.setting-item input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
 .setting-item .unit-input { width: 60px; flex: none; }
-.add-row { display: flex; gap: 6px; margin-top: 6px; }
-.add-row input[type=text] { flex: 1; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+.add-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.add-row input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
 .add-row .unit-input { width: 60px; flex: none; }
 
 .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -110,6 +110,12 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
   .sc-na      { color: #7f8c8d; }
 }
 .print-title { display: none; }
+/* Multi-phase grid */
+.meas-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:6px; width:100%; margin-top:4px; }
+.meas-cell { display:flex; flex-direction:column; align-items:center; gap:2px; }
+.meas-lbl  { font-size:11px; color:var(--muted); white-space:nowrap; text-align:center; }
+.meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:13px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
+.meas-unit { font-size:10px; color:var(--muted); }
 /* Sub-tabs */
 .sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 .sub-tab  { flex:1; padding:11px 4px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
@@ -152,8 +158,8 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
       <label>天候</label>
       <select id="weather"><option>晴</option><option>曇</option><option>雨</option><option>雪</option></select>
     </div>
-    <div class="form-row"><label>室温</label><input type="number" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span></div>
-    <div class="form-row"><label>湿度</label><input type="number" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span></div>
+    <div class="form-row"><label>室温</label><input type="number" inputmode="decimal" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span></div>
+    <div class="form-row"><label>湿度</label><input type="number" inputmode="decimal" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span></div>
   </div>
 
   <!-- サブタブ -->
@@ -218,6 +224,13 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
     </div>
     <div id="settings-categories"></div>
     <div class="card" style="margin-top:4px">
+      <div class="card-title" style="font-size:14px;margin-bottom:8px">設定の共有</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">設定（点検項目・計測値フィールド）をファイルに保存して、他の端末に引き継げます。</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="btn btn-primary btn-sm" onclick="exportConfig()">設定をエクスポート</button>
+        <button class="btn btn-warning btn-sm" onclick="document.getElementById('configImportFile').click()">設定をインポート</button>
+        <input type="file" id="configImportFile" accept=".json" style="display:none" onchange="importConfigFile(event)">
+      </div>
       <button class="btn btn-danger btn-sm" onclick="resetConfig()">設定をデフォルトに戻す</button>
     </div>
   </div>
@@ -464,12 +477,23 @@ function buildEntryForm() {
         row.className = 'form-row';
         if (!phaseLabels) {
           row.innerHTML = `<label>${esc(m.label)}</label>
-            <input type="number" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
+            <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
             <span class="unit">${esc(m.unit)}</span>`;
+        } else if (phases >= 5) {
+          const cells = phaseLabels.map((lbl, i) =>
+            `<div class="meas-cell">
+               <span class="meas-lbl">${lbl}</span>
+               <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any">
+               <span class="meas-unit">${esc(m.unit)}</span>
+             </div>`
+          ).join('');
+          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
+            <div class="meas-grid">${cells}</div>`;
+          row.style.flexWrap = 'wrap';
         } else {
           const inputs = phaseLabels.map((lbl, i) =>
             `<span style="font-size:12px;color:var(--muted);white-space:nowrap">${lbl}:
-             <input type="number" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
+             <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
              ${esc(m.unit)}</span>`
           ).join(' ');
           row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
@@ -813,6 +837,37 @@ function importData(e) {
       if (data.config) saveConfig(data.config);
       alert(`インポート完了！\n記録：${Object.keys(data.records||{}).length}件`);
       renderHistory(); buildEntryForm(); renderSettingsPage();
+    } catch(err) { alert('ファイルの読み込みに失敗しました'); }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function exportConfig() {
+  const data = {
+    main: JSON.parse(localStorage.getItem('inspection_config') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+    battery: JSON.parse(localStorage.getItem('inspection_config_battery') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_BATTERY)),
+    generator: JSON.parse(localStorage.getItem('inspection_config_generator') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_GENERATOR)),
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `点検設定_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+function importConfigFile(e) {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.main)      localStorage.setItem('inspection_config',           JSON.stringify(data.main));
+      if (data.battery)   localStorage.setItem('inspection_config_battery',   JSON.stringify(data.battery));
+      if (data.generator) localStorage.setItem('inspection_config_generator', JSON.stringify(data.generator));
+      alert('設定のインポートが完了しました');
+      renderSettingsPage(); buildEntryForm();
     } catch(err) { alert('ファイルの読み込みに失敗しました'); }
   };
   reader.readAsText(file);
