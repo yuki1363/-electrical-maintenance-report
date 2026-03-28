@@ -116,6 +116,7 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .meas-lbl  { font-size:11px; color:var(--muted); white-space:nowrap; text-align:center; }
 .meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:13px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
 .meas-unit { font-size:10px; color:var(--muted); }
+.prev-val { font-size:11px; color:var(--muted); margin-top:3px; width:100%; }
 /* Sub-tabs */
 .sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 .sub-tab  { flex:1; padding:11px 4px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
@@ -158,8 +159,8 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
       <label>天候</label>
       <select id="weather"><option>晴</option><option>曇</option><option>雨</option><option>雪</option></select>
     </div>
-    <div class="form-row"><label>室温</label><input type="number" inputmode="decimal" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span></div>
-    <div class="form-row"><label>湿度</label><input type="number" inputmode="decimal" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span></div>
+    <div class="form-row" style="flex-wrap:wrap"><label>室温</label><input type="number" inputmode="decimal" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span><div class="prev-val" id="prev-room_temp"></div></div>
+    <div class="form-row" style="flex-wrap:wrap"><label>湿度</label><input type="number" inputmode="decimal" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span><div class="prev-val" id="prev-humidity"></div></div>
   </div>
 
   <!-- サブタブ -->
@@ -246,7 +247,8 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
     <div id="print-actions" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="window.print()">PDF出力・印刷</button>
       <button class="btn btn-warning btn-sm" id="repair-btn" onclick="showRepairDoc()">改修推奨資料</button>
-      <button class="btn btn-danger btn-sm" onclick="deleteRecord()">削除</button>
+      <button class="btn btn-secondary btn-sm" id="all-eq-btn" onclick="printAllEquipment()" style="display:none">全設備印刷</button>
+      <button class="btn btn-danger btn-sm" id="delete-rec-btn" onclick="deleteRecord()">削除</button>
     </div>
     <div class="print-title" id="print-title"></div>
     <div id="modal-content"></div>
@@ -359,6 +361,7 @@ function switchEquipment(eq) {
 // ===================== 初期化 =====================
 let currentStatuses = {};
 let currentRecordId = null;
+let currentPreviewData = null;
 let draftTimer = null;
 
 window.onload = () => {
@@ -464,6 +467,22 @@ function buildEntryForm() {
   measCont.innerHTML  = '';
   checkCont.innerHTML = '';
 
+  // 前回データ取得
+  const lastRec  = Object.values(getRecords()).sort((a,b) => b.date.localeCompare(a.date))[0] || null;
+  const prevMs   = lastRec ? (lastRec.measurements   || {}) : {};
+  const prevSt   = lastRec ? (lastRec.statuses        || {}) : {};
+  const prevCr   = lastRec ? (lastRec.categoryRemarks || {}) : {};
+  const prevDate = lastRec ? `(${lastRec.date.slice(5).replace('-','/')})` : '';
+
+  // 基本情報カードの前回値
+  ['room_temp','humidity'].forEach(field => {
+    const el = document.getElementById(`prev-${field}`);
+    if (!el) return;
+    const unit = field === 'room_temp' ? '℃' : '%';
+    const v = lastRec && lastRec[field] !== '' && lastRec[field] !== undefined && lastRec[field] !== null;
+    el.textContent = v ? `前回${prevDate}: ${lastRec[field]} ${unit}` : '';
+  });
+
   cfg.forEach(cat => {
     // --- 計測データ カード ---
     if (cat.measurements.length > 0) {
@@ -476,17 +495,27 @@ function buildEntryForm() {
         const row = document.createElement('div');
         row.className = 'form-row';
         if (!phaseLabels) {
+          const pv = prevMs[m.key];
+          const prevHtml = (pv !== undefined && pv !== '')
+            ? `<div class="prev-val">前回${prevDate}: ${pv} ${esc(m.unit)}</div>` : '';
+          row.style.flexWrap = 'wrap';
           row.innerHTML = `<label>${esc(m.label)}</label>
             <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
-            <span class="unit">${esc(m.unit)}</span>`;
+            <span class="unit">${esc(m.unit)}</span>
+            ${prevHtml}`;
         } else if (phases >= 5) {
-          const cells = phaseLabels.map((lbl, i) =>
-            `<div class="meas-cell">
+          const pvArr = prevMs[m.key];
+          const cells = phaseLabels.map((lbl, i) => {
+            const pv = Array.isArray(pvArr) ? pvArr[i] : undefined;
+            const prevCell = (pv !== undefined && pv !== '')
+              ? `<span style="font-size:10px;color:#aaa">前:${pv}</span>` : '';
+            return `<div class="meas-cell">
                <span class="meas-lbl">${lbl}</span>
                <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any">
                <span class="meas-unit">${esc(m.unit)}</span>
-             </div>`
-          ).join('');
+               ${prevCell}
+             </div>`;
+          }).join('');
           row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
             <div class="meas-grid">${cells}</div>`;
           row.style.flexWrap = 'wrap';
@@ -496,8 +525,16 @@ function buildEntryForm() {
              <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
              ${esc(m.unit)}</span>`
           ).join(' ');
+          const pv = prevMs[m.key];
+          const prevText = pv
+            ? (Array.isArray(pv)
+                ? phaseLabels.map((lbl,i) => (pv[i]!==undefined && pv[i]!=='') ? `${lbl}:${pv[i]}${esc(m.unit)}` : '').filter(Boolean).join('　')
+                : `${pv} ${esc(m.unit)}`)
+            : '';
+          const prevHtml = prevText ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
           row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>`;
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>
+            ${prevHtml}`;
           row.style.flexWrap = 'wrap';
         }
         card.appendChild(row);
@@ -512,6 +549,8 @@ function buildEntryForm() {
       card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
       cat.checks.forEach(item => {
         currentStatuses[item.key] = currentStatuses[item.key] || 'good';
+        const ps = prevSt[item.key];
+        const prevHtml = ps ? `<div class="prev-val">前回${prevDate}: ${SL[ps]||ps}</div>` : '';
         const row = document.createElement('div');
         row.className = 'form-row';
         row.style.cssText = 'flex-direction:column;align-items:stretch;gap:4px';
@@ -520,15 +559,19 @@ function buildEntryForm() {
             <div class="status-btn good active" onclick="setSt('${item.key}','good',this)">良好</div>
             <div class="status-btn caution"     onclick="setSt('${item.key}','caution',this)">要注意</div>
             <div class="status-btn repair"      onclick="setSt('${item.key}','repair',this)">要修理</div>
-          </div>`;
+          </div>
+          ${prevHtml}`;
         card.appendChild(row);
       });
       // カテゴリ備考
+      const pr = prevCr[cat.id];
+      const prevRemHtml = pr ? `<div class="prev-val" style="margin-top:4px">前回備考: ${esc(pr)}</div>` : '';
       const remRow = document.createElement('div');
       remRow.style.cssText = 'margin-top:8px';
       remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
         <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
-          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>`;
+          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>
+        ${prevRemHtml}`;
       card.appendChild(remRow);
       checkCont.appendChild(card);
     }
@@ -649,12 +692,26 @@ function openRecord(id) {
   const r = getRecords()[id];
   if (!r) return;
   currentRecordId = id;
+  currentPreviewData = null;
   document.getElementById('modal-title').textContent = `点検記録 ${fmtDate(r.date)}`;
-  document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]||EQ_NAMES.main} 日常点検記録　${fmtDate(r.date)}`;
+  document.getElementById('print-title').textContent = `${EQ_NAMES[r.equipmentType]||EQ_NAMES[activeEquipment]||EQ_NAMES.main} 日常点検記録　${fmtDate(r.date)}`;
   document.getElementById('modal-content').innerHTML = buildRecordHTML(r);
+  document.getElementById('repair-btn').textContent = '改修推奨資料';
+  document.getElementById('repair-btn').onclick = showRepairDoc;
+  showDeleteBtn(true);
+  document.getElementById('all-eq-btn').style.display = hasOtherEquipRec(r.date) ? '' : 'none';
   document.getElementById('modal').classList.add('active');
 }
-function closeModal() { document.getElementById('modal').classList.remove('active'); currentRecordId = null; }
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  currentRecordId = null;
+  currentPreviewData = null;
+  showDeleteBtn(true);
+  const rb = document.getElementById('repair-btn');
+  rb.textContent = '改修推奨資料';
+  rb.onclick = showRepairDoc;
+  document.getElementById('all-eq-btn').style.display = 'none';
+}
 
 function buildRecordHTML(r) {
   const cfg = r.config || getConfig();
@@ -722,9 +779,16 @@ function previewPrint() {
   const data = collectForm();
   if (!data.date) { alert('点検日を入力してください'); return; }
   data.id = 'preview'; data.savedAt = new Date().toISOString();
+  data.equipmentType = activeEquipment;
+  currentPreviewData = data;
+  currentRecordId = null;
   document.getElementById('modal-title').textContent = `プレビュー ${fmtDate(data.date)}`;
-  document.getElementById('print-title').textContent = `高圧受電設備 日常点検記録　${fmtDate(data.date)}`;
+  document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]} 日常点検記録　${fmtDate(data.date)}`;
   document.getElementById('modal-content').innerHTML = buildRecordHTML(data);
+  document.getElementById('repair-btn').textContent = '改修推奨資料';
+  document.getElementById('repair-btn').onclick = showRepairDoc;
+  showDeleteBtn(false);
+  document.getElementById('all-eq-btn').style.display = 'none';
   document.getElementById('modal').classList.add('active');
   setTimeout(() => window.print(), 300);
 }
@@ -740,15 +804,26 @@ function deleteRecord() {
 
 // ===================== 改修推奨資料 =====================
 function showRepairDoc() {
-  const r = currentRecordId ? getRecords()[currentRecordId] : null;
+  const r = currentRecordId ? getRecords()[currentRecordId] : currentPreviewData;
   if (!r) return;
   const html = buildRepairHTML(r);
   document.getElementById('print-title').textContent = `改修推奨資料　${fmtDate(r.date)}`;
   document.getElementById('modal-title').textContent = `改修推奨資料 ${fmtDate(r.date)}`;
   document.getElementById('modal-content').innerHTML = html;
-  // ボタンを「点検記録に戻る」に切り替え
   document.getElementById('repair-btn').textContent = '← 点検記録';
-  document.getElementById('repair-btn').onclick = () => openRecord(currentRecordId);
+  document.getElementById('repair-btn').onclick = () => {
+    if (currentRecordId) {
+      openRecord(currentRecordId);
+    } else if (currentPreviewData) {
+      const d = currentPreviewData;
+      document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]} 日常点検記録　${fmtDate(d.date)}`;
+      document.getElementById('modal-title').textContent = `プレビュー ${fmtDate(d.date)}`;
+      document.getElementById('modal-content').innerHTML = buildRecordHTML(d);
+      document.getElementById('repair-btn').textContent = '改修推奨資料';
+      document.getElementById('repair-btn').onclick = showRepairDoc;
+      showDeleteBtn(false);
+    }
+  };
 }
 
 function buildRepairHTML(r) {
@@ -841,6 +916,41 @@ function importData(e) {
   };
   reader.readAsText(file);
   e.target.value = '';
+}
+
+// ===================== 印刷ヘルパー =====================
+function showDeleteBtn(visible) {
+  const btn = document.getElementById('delete-rec-btn');
+  if (btn) btn.style.display = visible ? '' : 'none';
+}
+
+function hasOtherEquipRec(date) {
+  return ['main','battery','generator'].some(eq => {
+    if (eq === activeEquipment) return false;
+    const key = eq === 'main' ? 'inspection_records' : `inspection_records_${eq}`;
+    return Object.values(JSON.parse(localStorage.getItem(key)||'{}')).some(r => r.date === date);
+  });
+}
+
+function printAllEquipment() {
+  const date = currentRecordId
+    ? (getRecords()[currentRecordId] || {}).date
+    : (currentPreviewData && currentPreviewData.date);
+  if (!date) return;
+  let html = '';
+  ['main','battery','generator'].forEach(eq => {
+    const key = eq === 'main' ? 'inspection_records' : `inspection_records_${eq}`;
+    const rec = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).find(r => r.date === date);
+    if (!rec) return;
+    if (html) html += `<div style="page-break-before:always"></div>`;
+    html += `<div style="font-size:18px;font-weight:bold;text-align:center;margin-bottom:10px">${EQ_NAMES[eq]} 日常点検記録　${fmtDate(date)}</div>`;
+    html += buildRecordHTML(rec);
+  });
+  if (!html) { alert('印刷できる記録がありません'); return; }
+  document.getElementById('print-title').textContent = '';
+  document.getElementById('modal-title').textContent = `全設備 ${fmtDate(date)}`;
+  document.getElementById('modal-content').innerHTML = html;
+  setTimeout(() => window.print(), 300);
 }
 
 function exportConfig() {
