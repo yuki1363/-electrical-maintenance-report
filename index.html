@@ -232,7 +232,8 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
         <button class="btn btn-warning btn-sm" onclick="document.getElementById('configImportFile').click()">設定をインポート</button>
         <input type="file" id="configImportFile" accept=".json" style="display:none" onchange="importConfigFile(event)">
       </div>
-      <button class="btn btn-danger btn-sm" onclick="resetConfig()">設定をデフォルトに戻す</button>
+      <button class="btn btn-secondary btn-sm" onclick="saveAsDefault()">現在の設定をデフォルトとして保存</button>
+      <button class="btn btn-danger btn-sm" onclick="resetConfig()" style="margin-top:6px">設定をデフォルトに戻す</button>
     </div>
   </div>
 </div>
@@ -958,6 +959,11 @@ function exportConfig() {
     main: JSON.parse(localStorage.getItem('inspection_config') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
     battery: JSON.parse(localStorage.getItem('inspection_config_battery') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_BATTERY)),
     generator: JSON.parse(localStorage.getItem('inspection_config_generator') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_GENERATOR)),
+    defaults: {
+      main:      JSON.parse(localStorage.getItem('inspection_default')           || 'null'),
+      battery:   JSON.parse(localStorage.getItem('inspection_default_battery')   || 'null'),
+      generator: JSON.parse(localStorage.getItem('inspection_default_generator') || 'null'),
+    },
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -976,6 +982,11 @@ function importConfigFile(e) {
       if (data.main)      localStorage.setItem('inspection_config',           JSON.stringify(data.main));
       if (data.battery)   localStorage.setItem('inspection_config_battery',   JSON.stringify(data.battery));
       if (data.generator) localStorage.setItem('inspection_config_generator', JSON.stringify(data.generator));
+      if (data.defaults) {
+        if (data.defaults.main)      localStorage.setItem('inspection_default',           JSON.stringify(data.defaults.main));
+        if (data.defaults.battery)   localStorage.setItem('inspection_default_battery',   JSON.stringify(data.defaults.battery));
+        if (data.defaults.generator) localStorage.setItem('inspection_default_generator', JSON.stringify(data.defaults.generator));
+      }
       alert('設定のインポートが完了しました');
       renderSettingsPage(); buildEntryForm();
     } catch(err) { alert('ファイルの読み込みに失敗しました'); }
@@ -1179,9 +1190,26 @@ function moveMeas(ci, mi, dir) {
   });
 }
 function renameMeas(ci, mi, field, val) { modifyConfigSilent(cfg => { cfg[ci].measurements[mi][field] = val; }); }
+function defaultKey() {
+  return activeEquipment === 'main' ? 'inspection_default' : `inspection_default_${activeEquipment}`;
+}
+
+function saveAsDefault() {
+  localStorage.setItem(defaultKey(), JSON.stringify(getConfig()));
+  alert(`${EQ_NAMES[activeEquipment]} の現在の設定をデフォルトとして保存しました`);
+}
+
 function resetConfig() {
-  if (!confirm('設定をデフォルトに戻しますか？\n（記録データは消えません）')) return;
-  localStorage.removeItem(cfgKey());
+  const userDefault = localStorage.getItem(defaultKey());
+  const msg = userDefault
+    ? `設定をユーザー定義のデフォルトに戻しますか？\n（記録データは消えません）`
+    : `設定を出荷時デフォルトに戻しますか？\n（記録データは消えません）`;
+  if (!confirm(msg)) return;
+  if (userDefault) {
+    localStorage.setItem(cfgKey(), userDefault);
+  } else {
+    localStorage.removeItem(cfgKey());
+  }
   renderSettingsPage(); buildEntryForm();
 }
 
