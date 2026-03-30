@@ -194,6 +194,12 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
   <div class="sub-page" id="sub-visual">
     <div id="entry-checks"></div>
   </div>
+  <div id="edit-banner" style="display:none;background:#eafaf1;border:1px solid #1e8449;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <span id="edit-info" style="color:#1e5631;font-weight:bold">✎ 記録を編集中</span>
+      <button class="btn btn-secondary btn-sm" onclick="cancelEdit()">キャンセル</button>
+    </div>
+  </div>
   <div id="draft-banner" style="display:none;background:#fef9e7;border:1px solid #d4ac0d;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
       <span id="draft-info" style="color:#7d6608"></span>
@@ -259,6 +265,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <button class="btn btn-primary btn-sm" onclick="window.print()">PDF出力・印刷</button>
       <button class="btn btn-warning btn-sm" id="repair-btn" onclick="showRepairDoc()">改修推奨資料</button>
       <button class="btn btn-secondary btn-sm" id="all-eq-btn" onclick="printAllEquipment()" style="display:none">全設備印刷</button>
+      <button class="btn btn-success btn-sm" id="edit-rec-btn" onclick="editRecord(currentRecordId)">編集</button>
       <button class="btn btn-danger btn-sm" id="delete-rec-btn" onclick="deleteRecord()">削除</button>
     </div>
     <div class="print-title" id="print-title"></div>
@@ -373,6 +380,7 @@ function switchEquipment(eq) {
 let currentStatuses = {};
 let currentRecordId = null;
 let currentPreviewData = null;
+let editingRecordId = null;
 let draftTimer = null;
 
 window.onload = () => {
@@ -407,25 +415,21 @@ function saveDraft() {
   ind.textContent = `下書き自動保存済 ${t}`;
 }
 
-function restoreDraft() {
-  const draft = getDraft();
-  if (!draft) return;
-  // 基本情報を復元
-  if (draft.date)      document.getElementById('date').value      = draft.date;
-  if (draft.inspector) document.getElementById('inspector').value = draft.inspector;
-  if (draft.facility)  document.getElementById('facility').value  = draft.facility;
-  if (draft.weather) {
+function loadDataIntoForm(data) {
+  if (data.date)      document.getElementById('date').value      = data.date;
+  if (data.inspector) document.getElementById('inspector').value = data.inspector;
+  if (data.facility)  document.getElementById('facility').value  = data.facility;
+  if (data.weather) {
     const sel = document.getElementById('weather');
-    [...sel.options].forEach(o => { if (o.value===draft.weather) sel.value=draft.weather; });
+    [...sel.options].forEach(o => { if (o.value===data.weather) sel.value=data.weather; });
   }
-  if (draft.room_temp) document.getElementById('room_temp').value = draft.room_temp;
-  if (draft.humidity)  document.getElementById('humidity').value  = draft.humidity;
-  if (draft.remarks)   document.getElementById('remarks').value   = draft.remarks;
-  // 状態ボタンを復元
-  if (draft.statuses) {
-    Object.entries(draft.statuses).forEach(([key, val]) => {
+  if (data.room_temp !== undefined && data.room_temp !== '') document.getElementById('room_temp').value = data.room_temp;
+  if (data.humidity  !== undefined && data.humidity  !== '') document.getElementById('humidity').value  = data.humidity;
+  if (data.remarks)   document.getElementById('remarks').value   = data.remarks;
+  if (data.statuses) {
+    Object.entries(data.statuses).forEach(([key, val]) => {
       currentStatuses[key] = val;
-      document.querySelectorAll(`.status-group`).forEach(grp => {
+      document.querySelectorAll('.status-group').forEach(grp => {
         const btn = grp.querySelector(`[onclick*="'${key}'"][onclick*="'${val}'"]`);
         if (btn) {
           grp.querySelectorAll('.status-btn').forEach(b => b.classList.remove('active'));
@@ -434,9 +438,8 @@ function restoreDraft() {
       });
     });
   }
-  // 計測値を復元
-  if (draft.measurements) {
-    Object.entries(draft.measurements).forEach(([key, val]) => {
+  if (data.measurements) {
+    Object.entries(data.measurements).forEach(([key, val]) => {
       if (Array.isArray(val)) {
         val.forEach((v, i) => {
           const el = document.getElementById(`m_${key}_${i}`);
@@ -448,12 +451,18 @@ function restoreDraft() {
       }
     });
   }
-  if (draft.categoryRemarks) {
-    Object.entries(draft.categoryRemarks).forEach(([id, val]) => {
-      const el = document.getElementById('cat-rem-'+id);
+  if (data.categoryRemarks) {
+    Object.entries(data.categoryRemarks).forEach(([catId, val]) => {
+      const el = document.getElementById('cat-rem-'+catId);
       if (el && val) el.value = val;
     });
   }
+}
+
+function restoreDraft() {
+  const draft = getDraft();
+  if (!draft) return;
+  loadDataIntoForm(draft);
   document.getElementById('draft-banner').style.display = 'none';
   document.getElementById('autosave-indicator').textContent = '下書きを読み込みました';
 }
@@ -621,12 +630,43 @@ function saveRecord() {
   if (!data.date)      { alert('点検日を入力してください'); return; }
   if (!data.inspector) { alert('点検者名を入力してください'); return; }
   const recs = getRecords();
-  const id = Date.now().toString();
-  recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
-  localStorage.setItem(recKey(), JSON.stringify(recs));
+  if (editingRecordId && recs[editingRecordId]) {
+    // 既存記録を上書き
+    recs[editingRecordId] = { ...recs[editingRecordId], ...data, savedAt: new Date().toISOString() };
+    localStorage.setItem(recKey(), JSON.stringify(recs));
+    editingRecordId = null;
+    document.getElementById('edit-banner').style.display = 'none';
+  } else {
+    const id = Date.now().toString();
+    recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
+    localStorage.setItem(recKey(), JSON.stringify(recs));
+  }
   clearDraft();
   alert('保存しました');
   renderHistory();
+}
+
+function editRecord(id) {
+  if (!id) return;
+  const r = getRecords()[id];
+  if (!r) return;
+  closeModal();
+  // 設備タイプが違う場合は切り替え
+  if (r.equipmentType && r.equipmentType !== activeEquipment) {
+    switchEquipment(r.equipmentType);
+  }
+  showTab('entry');
+  editingRecordId = id;
+  loadDataIntoForm(r);
+  document.getElementById('edit-banner').style.display = 'block';
+  document.getElementById('edit-info').textContent = `✎ 編集中：${fmtDate(r.date)}　${r.inspector||''}`;
+  document.getElementById('draft-banner').style.display = 'none';
+  window.scrollTo(0, 0);
+}
+
+function cancelEdit() {
+  editingRecordId = null;
+  document.getElementById('edit-banner').style.display = 'none';
 }
 
 function collectForm() {
