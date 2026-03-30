@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>高圧受電設備 日常点検記録</title>
 <style>
 :root {
@@ -22,10 +22,10 @@ body { font-family: 'Hiragino Sans','Meiryo',sans-serif; background: var(--bg); 
 
 header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 header h1 { font-size: 17px; font-weight: bold; }
-header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
+header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 
 .tabs { display: flex; background: var(--primary); }
-.tab  { flex: 1; padding: 10px 4px; text-align: center; color: rgba(255,255,255,.7); cursor: pointer; font-size: 13px; border-bottom: 3px solid transparent; transition: all .2s; }
+.tab  { flex: 1; padding: 13px 6px; text-align: center; color: rgba(255,255,255,.7); cursor: pointer; font-size: 13px; border-bottom: 3px solid transparent; transition: all .2s; }
 .tab.active { color: #fff; border-bottom-color: #f39c12; font-weight: bold; }
 
 .page { display: none; padding: 12px; max-width: 700px; margin: 0 auto; }
@@ -35,27 +35,27 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .card-title { font-size: 14px; font-weight: bold; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 6px; margin-bottom: 12px; }
 
 .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
-.form-row label { font-size: 13px; color: var(--muted); min-width: 90px; flex-shrink: 0; }
+.form-row label { font-size: 14px; color: var(--muted); min-width: 90px; flex-shrink: 0; }
 .form-row input[type=text],.form-row input[type=date],.form-row input[type=number],.form-row select,.form-row textarea {
   flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit; background: #fafafa; min-width: 0;
 }
 .form-row textarea { width: 100%; min-height: 70px; resize: vertical; }
-.unit { font-size: 12px; color: var(--muted); white-space: nowrap; }
+.unit { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
 .status-group { display: flex; gap: 5px; flex: 1; }
-.status-btn { flex: 1; padding: 7px 2px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 12px; background: #f8f9fa; transition: all .15s; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.status-btn { flex: 1; padding: 11px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; background: #f8f9fa; transition: all .15s; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
 .status-btn.good.active    { background: var(--good);    color: #fff; border-color: var(--good); }
 .status-btn.caution.active { background: var(--caution); color: #fff; border-color: var(--caution); }
 .status-btn.repair.active  { background: var(--repair);  color: #fff; border-color: var(--repair); }
 .status-btn.na.active      { background: var(--muted);   color: #fff; border-color: var(--muted); }
 
-.btn { display: inline-block; padding: 11px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: bold; text-align: center; width: 100%; margin-top: 6px; font-family: inherit; }
+.btn { display: inline-block; padding: 13px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: bold; text-align: center; width: 100%; margin-top: 6px; font-family: inherit; }
 .btn-primary   { background: var(--primary-light); color: #fff; }
 .btn-success   { background: var(--good);   color: #fff; }
 .btn-danger    { background: var(--repair); color: #fff; }
 .btn-secondary { background: var(--muted);  color: #fff; }
 .btn-warning   { background: var(--caution); color: #fff; }
-.btn-sm { padding: 5px 11px; font-size: 12px; width: auto; border-radius: 6px; margin-top: 0; }
+.btn-sm { padding: 9px 14px; font-size: 13px; width: auto; border-radius: 6px; margin-top: 0; }
 
 .history-item { background: var(--card); border-radius: 8px; padding: 12px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.1); cursor: pointer; border-left: 4px solid var(--primary-light); }
 .history-item:hover { background: #eaf4fb; }
@@ -72,7 +72,7 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .modal { background: #fff; border-radius: 10px; width: 95%; max-width: 680px; padding: 16px; margin: auto; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
 .modal-title  { font-size: 16px; font-weight: bold; color: var(--primary); }
-.close-btn    { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; }
+.close-btn    { background: none; border: none; font-size: 22px; cursor: pointer; color: var(--muted); line-height: 1; padding: 8px 12px; }
 
 /* 設定画面 */
 .setting-cat { background: var(--card); border-radius: 8px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,.1); overflow: hidden; }
@@ -91,6 +91,16 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
 .search-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
 .no-records { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
+
+/* Mobile touch */
+.tab, .sub-tab, .eq-btn, .btn, .btn-sm, .close-btn,
+.setting-cat-header, .history-item, .status-btn {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+}
+body.modal-open { overflow: hidden; position: fixed; width: 100%; }
+.modal-overlay.active { -webkit-overflow-scrolling: touch; }
 
 /* Print */
 @media print {
@@ -119,13 +129,13 @@ header p  { font-size: 12px; opacity: .8; margin-top: 2px; }
 .prev-val { font-size:11px; color:var(--muted); margin-top:3px; width:100%; }
 /* Sub-tabs */
 .sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
-.sub-tab  { flex:1; padding:11px 4px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
+.sub-tab  { flex:1; padding:13px 8px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
 .sub-tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:bold; background:#f0f7ff; }
 .sub-page { display:none; }
 .sub-page.active { display:block; }
 /* Equipment selector */
 .eq-bar { display:flex; background:#0e3460; overflow-x:auto; gap:2px; padding:6px 8px; }
-.eq-btn { flex-shrink:0; padding:6px 14px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
+.eq-btn { flex-shrink:0; padding:11px 16px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
 .eq-btn.active { background:#f39c12; color:#fff; font-weight:bold; }
 </style>
 </head>
@@ -702,9 +712,11 @@ function openRecord(id) {
   showDeleteBtn(true);
   document.getElementById('all-eq-btn').style.display = hasOtherEquipRec(r.date) ? '' : 'none';
   document.getElementById('modal').classList.add('active');
+  document.body.classList.add('modal-open');
 }
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
+  document.body.classList.remove('modal-open');
   currentRecordId = null;
   currentPreviewData = null;
   showDeleteBtn(true);
@@ -791,6 +803,7 @@ function previewPrint() {
   showDeleteBtn(false);
   document.getElementById('all-eq-btn').style.display = 'none';
   document.getElementById('modal').classList.add('active');
+  document.body.classList.add('modal-open');
   setTimeout(() => window.print(), 300);
 }
 
