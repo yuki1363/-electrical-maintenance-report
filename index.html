@@ -82,10 +82,10 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .setting-cat-body.open { display: block; }
 .setting-section-label { font-size: 12px; color: var(--muted); font-weight: bold; margin: 10px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
 .setting-item { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; flex-wrap: wrap; }
-.setting-item input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+.setting-item input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; font-family: inherit; }
 .setting-item .unit-input { width: 60px; flex: none; }
 .add-row { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
-.add-row input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; font-family: inherit; }
+.add-row input[type=text] { flex: 1; min-width: 80px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 16px; font-family: inherit; }
 .add-row .unit-input { width: 60px; flex: none; }
 
 .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
@@ -99,7 +99,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
   touch-action: manipulation;
   user-select: none;
 }
-body.modal-open { overflow: hidden; position: fixed; width: 100%; }
+body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right: 0; }
 .modal-overlay.active { -webkit-overflow-scrolling: touch; }
 
 /* Print */
@@ -124,7 +124,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
 .meas-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(72px,1fr)); gap:6px; width:100%; margin-top:4px; }
 .meas-cell { display:flex; flex-direction:column; align-items:center; gap:2px; }
 .meas-lbl  { font-size:11px; color:var(--muted); white-space:nowrap; text-align:center; }
-.meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:13px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
+.meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:16px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
 .meas-unit { font-size:10px; color:var(--muted); }
 .prev-val { font-size:11px; color:var(--muted); margin-top:3px; width:100%; }
 /* Sub-tabs */
@@ -224,7 +224,7 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; }
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     </div>
     <div class="search-bar">
-      <input type="month" id="search-month" onchange="renderHistory()">
+      <input type="text" id="search-month" placeholder="例: 2026-03" maxlength="7" onchange="renderHistory()" style="width:120px;flex:none">
       <button class="btn btn-secondary btn-sm" onclick="document.getElementById('search-month').value='';renderHistory()">全て</button>
     </div>
     <div id="history-list"></div>
@@ -363,7 +363,7 @@ function getConfig() {
   try { const c = JSON.parse(localStorage.getItem(cfgKey())); if (c) return c; } catch(e){}
   return JSON.parse(JSON.stringify(EQ_DEFAULTS[activeEquipment] || DEFAULT_CONFIG));
 }
-function saveConfig(cfg) { localStorage.setItem(cfgKey(), JSON.stringify(cfg)); }
+function saveConfig(cfg) { try { localStorage.setItem(cfgKey(), JSON.stringify(cfg)); } catch(e) { alert('設定を保存できませんでした（プライベートモードでは使用できません）'); } }
 
 function switchEquipment(eq) {
   activeEquipment = eq;
@@ -381,6 +381,7 @@ let currentStatuses = {};
 let currentRecordId = null;
 let currentPreviewData = null;
 let editingRecordId = null;
+let _modalScrollY = 0;
 let draftTimer = null;
 
 window.onload = () => {
@@ -409,7 +410,7 @@ function getDraft() {
 function saveDraft() {
   const data = collectForm();
   data.savedAt = new Date().toISOString();
-  localStorage.setItem(draftKey(), JSON.stringify(data));
+  try { localStorage.setItem(draftKey(), JSON.stringify(data)); } catch(e) { return; }
   const ind = document.getElementById('autosave-indicator');
   const t = new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'});
   ind.textContent = `下書き自動保存済 ${t}`;
@@ -468,7 +469,7 @@ function restoreDraft() {
 }
 
 function clearDraft() {
-  localStorage.removeItem(draftKey());
+  try { localStorage.removeItem(draftKey()); } catch(e) {}
   document.getElementById('draft-banner').style.display = 'none';
   document.getElementById('autosave-indicator').textContent = '下書きを削除しました';
 }
@@ -590,7 +591,7 @@ function buildEntryForm() {
       remRow.style.cssText = 'margin-top:8px';
       remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
         <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
-          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:13px;font-family:inherit;background:#fafafa"></textarea>
+          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:16px;font-family:inherit;background:#fafafa"></textarea>
         ${prevRemHtml}`;
       card.appendChild(remRow);
       checkCont.appendChild(card);
@@ -631,15 +632,18 @@ function saveRecord() {
   if (!data.inspector) { alert('点検者名を入力してください'); return; }
   const recs = getRecords();
   if (editingRecordId && recs[editingRecordId]) {
-    // 既存記録を上書き
     recs[editingRecordId] = { ...recs[editingRecordId], ...data, savedAt: new Date().toISOString() };
-    localStorage.setItem(recKey(), JSON.stringify(recs));
     editingRecordId = null;
     document.getElementById('edit-banner').style.display = 'none';
   } else {
     const id = Date.now().toString();
     recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
+  }
+  try {
     localStorage.setItem(recKey(), JSON.stringify(recs));
+  } catch(e) {
+    alert('保存できませんでした（プライベートモードでは使用できません）');
+    return;
   }
   clearDraft();
   alert('保存しました');
@@ -751,12 +755,16 @@ function openRecord(id) {
   document.getElementById('repair-btn').onclick = showRepairDoc;
   showDeleteBtn(true);
   document.getElementById('all-eq-btn').style.display = hasOtherEquipRec(r.date) ? '' : 'none';
+  _modalScrollY = window.scrollY;
+  document.body.style.top = `-${_modalScrollY}px`;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
 }
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
   document.body.classList.remove('modal-open');
+  document.body.style.top = '';
+  window.scrollTo(0, _modalScrollY);
   currentRecordId = null;
   currentPreviewData = null;
   showDeleteBtn(true);
@@ -842,6 +850,8 @@ function previewPrint() {
   document.getElementById('repair-btn').onclick = showRepairDoc;
   showDeleteBtn(false);
   document.getElementById('all-eq-btn').style.display = 'none';
+  _modalScrollY = window.scrollY;
+  document.body.style.top = `-${_modalScrollY}px`;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
   setTimeout(() => window.print(), 300);
@@ -852,7 +862,7 @@ function deleteRecord() {
   if (!confirm('この記録を削除しますか？')) return;
   const recs = getRecords();
   delete recs[currentRecordId];
-  localStorage.setItem(recKey(), JSON.stringify(recs));
+  try { localStorage.setItem(recKey(), JSON.stringify(recs)); } catch(e) {}
   closeModal(); renderHistory();
 }
 
@@ -943,13 +953,26 @@ function buildRepairHTML(r) {
 }
 
 // ===================== エクスポート/インポート =====================
+function triggerDownload(blob, filename) {
+  // iOS Safari 15+: ファイル共有シートを使用
+  if (navigator.share && navigator.canShare) {
+    const file = new File([blob], filename, { type: blob.type });
+    if (navigator.canShare({ files: [file] })) {
+      navigator.share({ files: [file] }).catch(() => {});
+      return;
+    }
+  }
+  // デスクトップ・Android: 通常ダウンロード
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+}
+
 function exportData() {
   const data = { records: getRecords(), config: getConfig(), exportedAt: new Date().toISOString() };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `点検記録_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+  triggerDownload(blob, `点検記録_${new Date().toISOString().slice(0,10)}.json`);
 }
 
 function importData(e) {
@@ -1020,10 +1043,7 @@ function exportConfig() {
     exportedAt: new Date().toISOString()
   };
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `点検設定_${new Date().toISOString().slice(0,10)}.json`;
-  a.click();
+  triggerDownload(blob, `点検設定_${new Date().toISOString().slice(0,10)}.json`);
 }
 
 function importConfigFile(e) {
