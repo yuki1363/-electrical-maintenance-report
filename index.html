@@ -223,6 +223,10 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right
       <button class="btn btn-warning btn-sm" onclick="document.getElementById('importFile').click()">JSONインポート</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     </div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
+      <input type="text" id="annual-year" placeholder="例: 2026" maxlength="4" style="width:90px;flex:none;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:16px;font-family:inherit">
+      <button class="btn btn-primary btn-sm" onclick="showAnnualReport()">年間報告書を作成</button>
+    </div>
     <div class="search-bar">
       <input type="text" id="search-month" placeholder="例: 2026-03" maxlength="7" onchange="renderHistory()" style="width:120px;flex:none">
       <button class="btn btn-secondary btn-sm" onclick="document.getElementById('search-month').value='';renderHistory()">全て</button>
@@ -772,6 +776,158 @@ function openRecord(id) {
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
 }
+// ===================== 年間報告書 =====================
+function showAnnualReport() {
+  const yearVal = document.getElementById('annual-year').value.trim();
+  const year = yearVal || String(new Date().getFullYear());
+  if (!/^\d{4}$/.test(year)) { alert('年を4桁で入力してください（例: 2026）'); return; }
+  const recs = Object.values(getRecords())
+    .filter(r => r.date && r.date.startsWith(year))
+    .sort((a, b) => a.date.localeCompare(b.date));
+  if (!recs.length) { alert(`${year}年の記録がありません`); return; }
+  currentRecordId = null;
+  currentPreviewData = null;
+  document.getElementById('modal-title').textContent = `${EQ_NAMES[activeEquipment]} ${year}年 年間点検集計報告書`;
+  document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]} 年間点検集計報告書　${year}年`;
+  document.getElementById('modal-content').innerHTML = buildAnnualHTML(recs, year);
+  document.getElementById('repair-btn').style.display = 'none';
+  document.getElementById('edit-rec-btn').style.display = 'none';
+  showDeleteBtn(false);
+  document.getElementById('all-eq-btn').style.display = 'none';
+  _modalScrollY = window.scrollY;
+  document.body.style.top = `-${_modalScrollY}px`;
+  document.getElementById('modal').classList.add('active');
+  document.body.classList.add('modal-open');
+}
+
+function buildAnnualHTML(recs, year) {
+  const cfg = getConfig();
+  const TH = s => `<th style="padding:5px 7px;border:1px solid #ccc;background:#d6eaf8;white-space:nowrap;text-align:center">${s}</th>`;
+  const TD = (s, style) => `<td style="padding:4px 7px;border:1px solid #ccc${style ? ';' + style : ''}">${s != null && s !== '' ? s : '—'}</td>`;
+
+  // 集計
+  let totalCaution = 0, totalRepair = 0;
+  recs.forEach(r => {
+    Object.values(r.statuses || {}).forEach(v => {
+      if (v === 'caution') totalCaution++;
+      else if (v === 'repair') totalRepair++;
+    });
+  });
+  const facility = (recs[0] && recs[0].facility) || '—';
+
+  // ---- 月別点検実績 ----
+  let monthRows = '';
+  for (let m = 1; m <= 12; m++) {
+    const mm = String(m).padStart(2, '0');
+    const mRecs = recs.filter(r => r.date.slice(5, 7) === mm);
+    if (!mRecs.length) {
+      monthRows += `<tr>${TD(m + '月', 'text-align:center')}${TD('点検なし', 'color:#aaa;text-align:center')}${TD('', '')}${TD('—', 'text-align:center')}${TD('—', 'text-align:center')}</tr>`;
+    } else {
+      mRecs.forEach((r, ri) => {
+        const st = r.statuses || {};
+        const ca = Object.values(st).filter(v => v === 'caution').length;
+        const re = Object.values(st).filter(v => v === 'repair').length;
+        monthRows += `<tr>
+          ${ri === 0 ? `<td rowspan="${mRecs.length}" style="padding:4px 7px;border:1px solid #ccc;text-align:center;vertical-align:middle">${m}月</td>` : ''}
+          ${TD(fmtDate(r.date))}${TD(esc(r.inspector || '—'))}
+          ${TD(ca > 0 ? ca + '件' : '—', ca > 0 ? 'color:#d4ac0d;text-align:center' : 'text-align:center')}
+          ${TD(re > 0 ? re + '件' : '—', re > 0 ? 'color:#c0392b;text-align:center' : 'text-align:center')}
+        </tr>`;
+      });
+    }
+  }
+
+  // ---- 点検項目別年間集計 ----
+  let checkRows = '';
+  cfg.forEach(cat => {
+    const rows = [];
+    cat.checks.forEach(item => {
+      let good = 0, caution = 0, repair = 0;
+      recs.forEach(r => {
+        const v = (r.statuses || {})[item.key];
+        if (v === 'good') good++;
+        else if (v === 'caution') caution++;
+        else if (v === 'repair') repair++;
+      });
+      if (good + caution + repair === 0) return;
+      rows.push(`<tr>
+        ${TD(esc(item.label))}
+        ${TD(good, 'color:#1e8449;text-align:center')}
+        ${TD(caution || '—', caution > 0 ? 'color:#d4ac0d;text-align:center;font-weight:bold' : 'text-align:center')}
+        ${TD(repair || '—', repair > 0 ? 'color:#c0392b;text-align:center;font-weight:bold' : 'text-align:center')}
+      </tr>`);
+    });
+    if (rows.length) {
+      checkRows += `<tr><td colspan="4" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
+      checkRows += rows.join('');
+    }
+  });
+
+  // ---- 測定値月別推移 ----
+  const mnums = Array.from({ length: 12 }, (_, i) => i + 1);
+  let measRows = '';
+  cfg.forEach(cat => {
+    cat.measurements.forEach(m => {
+      const pl = getPhaseLabels(m.phases || 1, m.phasePrefix);
+      if (!pl) {
+        let row = `<tr>${TD(esc(m.label))}${TD(esc(m.unit), 'text-align:center')}`;
+        mnums.forEach(mo => {
+          const rec = recs.find(r => r.date.slice(5, 7) === String(mo).padStart(2, '0'));
+          const val = rec ? ((rec.measurements || {})[m.key] || '') : '';
+          row += TD(val, 'text-align:center');
+        });
+        measRows += row + '</tr>';
+      } else {
+        pl.forEach((lbl, i) => {
+          let row = `<tr>${TD(esc(m.label) + ' ' + lbl)}${TD(esc(m.unit), 'text-align:center')}`;
+          mnums.forEach(mo => {
+            const rec = recs.find(r => r.date.slice(5, 7) === String(mo).padStart(2, '0'));
+            const vals = rec ? ((rec.measurements || {})[m.key] || []) : [];
+            const val = Array.isArray(vals) ? (vals[i] || '') : '';
+            row += TD(val, 'text-align:center');
+          });
+          measRows += row + '</tr>';
+        });
+      }
+    });
+  });
+
+  const mhdr = mnums.map(i => TH(i + '月')).join('');
+  const sec = t => `<div style="font-weight:bold;font-size:13px;color:#1a5276;border-left:3px solid #1a5276;padding-left:8px;margin:14px 0 6px">${t}</div>`;
+
+  let html = `<div style="font-size:12px;color:#555;padding:8px 10px;background:#f4f6f7;border-radius:6px;margin-bottom:10px;line-height:1.8">
+    設備：<b>${EQ_NAMES[activeEquipment]}</b>　設備名称：<b>${esc(facility)}</b>　年度：<b>${year}年</b><br>
+    点検回数：<b>${recs.length}回</b>　要注意累計：<b style="color:#d4ac0d">${totalCaution}件</b>　要修理累計：<b style="color:#c0392b">${totalRepair}件</b>
+  </div>`;
+
+  html += sec('月別点検実績');
+  html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px">
+    <thead><tr>${TH('月')}${TH('点検日')}${TH('点検者')}${TH('要注意')}${TH('要修理')}</tr></thead>
+    <tbody>${monthRows}</tbody>
+  </table>`;
+
+  if (checkRows) {
+    html += sec('点検項目別 年間集計');
+    html += `<table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:4px">
+      <thead><tr>${TH('点検項目')}${TH('良好')}${TH('要注意')}${TH('要修理')}</tr></thead>
+      <tbody>${checkRows}</tbody>
+    </table>`;
+  }
+
+  if (measRows) {
+    html += sec('測定値 月別推移');
+    html += `<div style="overflow-x:auto;margin-bottom:4px">
+      <table style="border-collapse:collapse;font-size:11px;white-space:nowrap">
+        <thead><tr>${TH('測定項目')}${TH('単位')}${mhdr}</tr></thead>
+        <tbody>${measRows}</tbody>
+      </table>
+    </div>`;
+  }
+
+  html += `<div style="font-size:11px;color:#aaa;text-align:right;margin-top:10px">作成日時：${new Date().toLocaleString('ja-JP')}</div>`;
+  return html;
+}
+
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
   document.body.classList.remove('modal-open');
@@ -781,8 +937,10 @@ function closeModal() {
   currentPreviewData = null;
   showDeleteBtn(true);
   const rb = document.getElementById('repair-btn');
+  rb.style.display = '';
   rb.textContent = '改修推奨資料';
   rb.onclick = showRepairDoc;
+  document.getElementById('edit-rec-btn').style.display = '';
   document.getElementById('all-eq-btn').style.display = 'none';
 }
 
