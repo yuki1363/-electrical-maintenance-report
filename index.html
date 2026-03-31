@@ -37,7 +37,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
 .form-row label { font-size: 14px; color: var(--muted); min-width: 90px; flex-shrink: 0; }
 .form-row input[type=text],.form-row input[type=date],.form-row input[type=number],.form-row select,.form-row textarea {
-  flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 14px; font-family: inherit; background: #fafafa; min-width: 0;
+  flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 16px; font-family: inherit; background: #fafafa; min-width: 0;
 }
 .form-row textarea { width: 100%; min-height: 70px; resize: vertical; }
 .unit { font-size: 13px; color: var(--muted); white-space: nowrap; }
@@ -89,7 +89,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .add-row .unit-input { width: 60px; flex: none; }
 
 .search-bar { display: flex; gap: 8px; margin-bottom: 12px; }
-.search-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 14px; }
+.search-bar input { flex: 1; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 16px; }
 .no-records { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
 
 /* Mobile touch */
@@ -1131,12 +1131,12 @@ function renderSettingsPage(openSet) {
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
               <input type="number" min="1" max="999" value="${m.phases||1}"
-                style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
                 title="入力欄の数" placeholder="数"
                 onchange="renameMeas(${ci},${mi},'phases',+this.value||1)">
               <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
               <input type="text" value="${esc(m.phasePrefix||'')}"
-                style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+                style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
                 placeholder="接頭語" title="ラベルの接頭語（例：セル）"
                 onchange="renameMeas(${ci},${mi},'phasePrefix',this.value)">
               <button class="btn btn-warning btn-sm" onclick="dupMeas(${ci},${mi})">複製</button>
@@ -1147,11 +1147,11 @@ function renderSettingsPage(openSet) {
           <input type="text" id="new-meas-label-${ci}" placeholder="ラベル (例: 電圧)">
           <input type="text" class="unit-input" id="new-meas-unit-${ci}" placeholder="単位">
           <input type="number" min="1" max="999" value="1" id="new-meas-phases-${ci}"
-            style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            style="width:58px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
             title="入力欄の数" placeholder="数">
           <span style="font-size:11px;color:var(--muted);white-space:nowrap">本</span>
           <input type="text" id="new-meas-prefix-${ci}"
-            style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:13px"
+            style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
             placeholder="接頭語" title="ラベルの接頭語（例：セル）">
           <button class="btn btn-primary btn-sm" onclick="addMeas(${ci})">追加</button>
         </div>
