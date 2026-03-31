@@ -384,13 +384,25 @@ let editingRecordId = null;
 let _modalScrollY = 0;
 let draftTimer = null;
 
-window.onload = () => {
-  document.getElementById('date').value = new Date().toISOString().slice(0,10);
-  buildEntryForm();
-  checkDraftOnLoad();
-  renderHistory();
-  renderSettingsPage();
-};
+// スクリプトはbody末尾にあるのでDOMは構築済み。
+// window.onload の代わりに直接実行 (iOS SafariでのQuickLook等に対応)
+function _init() {
+  try {
+    document.getElementById('date').value = new Date().toISOString().slice(0,10);
+    buildEntryForm();
+    checkDraftOnLoad();
+    renderHistory();
+    renderSettingsPage();
+  } catch(e) {
+    var errEl = document.getElementById('entry-measurements');
+    if (errEl) errEl.innerHTML = '<div style="color:#c0392b;padding:16px;background:#fdedec;border-radius:8px;margin:12px 0">初期化エラー: ' + String(e) + '<br><small>このエラー内容を開発者に連絡してください</small></div>';
+  }
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', _init);
+} else {
+  _init();
+}
 
 // ===================== 下書き =====================
 function checkDraftOnLoad() {
