@@ -389,24 +389,30 @@ let _modalScrollY = 0;
 let draftTimer = null;
 
 // スクリプトはbody末尾にあるのでDOMは構築済み。
-// window.onload の代わりに直接実行 (iOS SafariでのQuickLook等に対応)
+// iOS WebView/QuickLook等でreadyState判定が信頼できないため
+// 即時実行とDOMContentLoadedの両方で_init()を呼ぶ
+let _initialized = false;
 function _init() {
+  if (_initialized) return;
+  _initialized = true;
   try {
     document.getElementById('date').value = new Date().toISOString().slice(0,10);
     buildEntryForm();
     checkDraftOnLoad();
     renderHistory();
     renderSettingsPage();
+    var pe = document.getElementById('page-entry');
+    if (pe) {
+      pe.addEventListener('input', scheduleDraftSave);
+      pe.addEventListener('change', scheduleDraftSave);
+    }
   } catch(e) {
     var errEl = document.getElementById('entry-measurements');
     if (errEl) errEl.innerHTML = '<div style="color:#c0392b;padding:16px;background:#fdedec;border-radius:8px;margin:12px 0">初期化エラー: ' + String(e) + '<br><small>このエラー内容を開発者に連絡してください</small></div>';
   }
 }
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', _init);
-} else {
-  _init();
-}
+document.addEventListener('DOMContentLoaded', _init);
+_init();
 
 // ===================== 下書き =====================
 function checkDraftOnLoad() {
@@ -501,6 +507,7 @@ function buildEntryForm() {
   const cfg = getConfig();
   const measCont  = document.getElementById('entry-measurements');
   const checkCont = document.getElementById('entry-checks');
+  if (!measCont || !checkCont) return;
   measCont.innerHTML  = '';
   checkCont.innerHTML = '';
 
@@ -614,8 +621,6 @@ function buildEntryForm() {
     }
   });
 
-  document.getElementById('page-entry').addEventListener('input', scheduleDraftSave);
-  document.getElementById('page-entry').addEventListener('change', scheduleDraftSave);
 }
 
 function setSt(key, val, el) {
