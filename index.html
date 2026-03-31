@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="点検記録">
+<meta name="theme-color" content="#1a5276">
+<link rel="manifest" href="manifest.json">
 <title>高圧受電設備 日常点検記録</title>
 <style>
 :root {
@@ -387,6 +392,11 @@ let currentPreviewData = null;
 let editingRecordId = null;
 let _modalScrollY = 0;
 let draftTimer = null;
+
+// Service Worker 登録（GitHub Pages / HTTPS環境でのオフライン対応）
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
 
 // スクリプトはbody末尾にあるのでDOMは構築済み。
 // window.onload の代わりに直接実行 (iOS SafariでのQuickLook等に対応)
