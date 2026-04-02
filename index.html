@@ -18,7 +18,7 @@
   --muted: #7f8c8d;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: 'Hiragino Sans','Meiryo',sans-serif; background: var(--bg); color: var(--text); font-size: 15px; }
+body { font-family: 'Hiragino Sans','Meiryo',sans-serif; background: var(--bg); color: var(--text); font-size: 15px; -webkit-text-size-adjust: 100%; }
 
 header { background: var(--primary); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
 header h1 { font-size: 17px; font-weight: bold; }
@@ -37,7 +37,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .form-row { display: flex; align-items: center; margin-bottom: 10px; gap: 8px; flex-wrap: wrap; }
 .form-row label { font-size: 14px; color: var(--muted); min-width: 90px; flex-shrink: 0; }
 .form-row input[type=text],.form-row input[type=date],.form-row input[type=number],.form-row select,.form-row textarea {
-  flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 16px; font-family: inherit; background: #fafafa; min-width: 0;
+  flex: 1; border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; font-size: 16px; font-family: inherit; background: #fafafa; min-width: 0; -webkit-appearance: none; appearance: none;
 }
 .form-row textarea { width: 100%; min-height: 70px; resize: vertical; }
 .unit { font-size: 13px; color: var(--muted); white-space: nowrap; }
@@ -169,8 +169,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right
       <label>天候</label>
       <select id="weather"><option>晴</option><option>曇</option><option>雨</option><option>雪</option></select>
     </div>
-    <div class="form-row" style="flex-wrap:wrap"><label>室温</label><input type="number" inputmode="decimal" id="room_temp" placeholder="—" step="0.1" style="max-width:90px"><span class="unit">℃</span><div class="prev-val" id="prev-room_temp"></div></div>
-    <div class="form-row" style="flex-wrap:wrap"><label>湿度</label><input type="number" inputmode="decimal" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span><div class="prev-val" id="prev-humidity"></div></div>
+    <div class="form-row" style="flex-wrap:wrap"><label>室温</label><input type="text" inputmode="decimal" id="room_temp" placeholder="—" autocomplete="off" style="max-width:90px"><span class="unit">℃</span><div class="prev-val" id="prev-room_temp"></div></div>
+    <div class="form-row" style="flex-wrap:wrap"><label>湿度</label><input type="text" inputmode="numeric" id="humidity" placeholder="—" autocomplete="off" style="max-width:90px"><span class="unit">%</span><div class="prev-val" id="prev-humidity"></div></div>
   </div>
 
   <!-- サブタブ -->
@@ -544,7 +544,7 @@ function buildEntryForm() {
             ? `<div class="prev-val">前回${prevDate}: ${pv} ${esc(m.unit)}</div>` : '';
           row.style.flexWrap = 'wrap';
           row.innerHTML = `<label>${esc(m.label)}</label>
-            <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
+            <input type="text" inputmode="decimal" id="m_${m.key}" placeholder="—" autocomplete="off" style="max-width:110px">
             <span class="unit">${esc(m.unit)}</span>
             ${prevHtml}`;
         } else if (phases >= 5) {
@@ -555,7 +555,7 @@ function buildEntryForm() {
               ? `<span style="font-size:10px;color:#aaa">前:${pv}</span>` : '';
             return `<div class="meas-cell">
                <span class="meas-lbl">${lbl}</span>
-               <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any">
+               <input type="text" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" autocomplete="off">
                <span class="meas-unit">${esc(m.unit)}</span>
                ${prevCell}
              </div>`;
@@ -566,7 +566,7 @@ function buildEntryForm() {
         } else {
           const inputs = phaseLabels.map((lbl, i) =>
             `<span style="font-size:12px;color:var(--muted);white-space:nowrap">${lbl}:
-             <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any" style="max-width:80px;display:inline-block">
+             <input type="text" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" autocomplete="off" style="max-width:80px;display:inline-block">
              ${esc(m.unit)}</span>`
           ).join(' ');
           const pv = prevMs[m.key];
@@ -694,6 +694,10 @@ function cancelEdit() {
   document.getElementById('edit-banner').style.display = 'none';
 }
 
+function normNum(v) {
+  return String(v || '').replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/[，,]/g, '.').replace(/\s+/g, '');
+}
+
 function collectForm() {
   const cfg = getConfig();
   const measurements = {};
@@ -701,11 +705,11 @@ function collectForm() {
     const phases = m.phases || 1;
     if (phases === 1) {
       const el = document.getElementById('m_'+m.key);
-      if (el && el.value !== '') measurements[m.key] = el.value;
+      if (el && el.value !== '') measurements[m.key] = normNum(el.value);
     } else {
       const vals = Array.from({length: phases}, (_, i) => {
         const el = document.getElementById(`m_${m.key}_${i}`);
-        return el ? el.value : '';
+        return el ? normNum(el.value) : '';
       });
       if (vals.some(v => v !== '')) measurements[m.key] = vals;
     }
@@ -715,8 +719,8 @@ function collectForm() {
     inspector: document.getElementById('inspector').value,
     facility: document.getElementById('facility').value,
     weather: document.getElementById('weather').value,
-    room_temp: document.getElementById('room_temp').value,
-    humidity: document.getElementById('humidity').value,
+    room_temp: normNum(document.getElementById('room_temp').value),
+    humidity: normNum(document.getElementById('humidity').value),
     statuses: {...currentStatuses},
     measurements,
     categoryRemarks: Object.fromEntries(cfg.map(cat => {
