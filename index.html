@@ -695,7 +695,7 @@ function cancelEdit() {
 }
 
 function normNum(v) {
-  return String(v || '').replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/，/g, ',').replace(/\s+/g, '').replace(',', '.');
+  return String(v || '').replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0)).replace(/[，,]/g, '.').replace(/\s+/g, '');
 }
 
 function collectForm() {
