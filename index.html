@@ -1155,19 +1155,30 @@ function buildRepairHTML(r) {
 
 // ===================== エクスポート/インポート =====================
 function triggerDownload(blob, filename) {
-  // iOS Safari 15+: ファイル共有シートを使用
+  // iOS Safari: Web Share API でファイル共有シートを表示
   if (navigator.share && navigator.canShare) {
     const file = new File([blob], filename, { type: blob.type });
     if (navigator.canShare({ files: [file] })) {
-      navigator.share({ files: [file] }).catch(() => {});
+      navigator.share({ files: [file] }).catch(err => {
+        // AbortError はユーザーキャンセルなので無視、それ以外はフォールバック
+        if (err && err.name !== 'AbortError') _downloadFallback(blob, filename);
+      });
       return;
     }
   }
-  // デスクトップ・Android: 通常ダウンロード
+  _downloadFallback(blob, filename);
+}
+
+function _downloadFallback(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  a.href = url;
   a.download = filename;
+  a.style.display = 'none';
+  document.body.appendChild(a);
   a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function exportData() {
