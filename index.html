@@ -780,9 +780,17 @@ function renderHistory() {
       (!re && !ca) ? '<span class="badge badge-good">異常なし</span>' : '',
     ].join('');
     return `<div class="history-item" onclick="openRecord('${r.id}')">
-      <div class="history-date">${fmtDate(r.date)}</div>
-      <div class="history-meta">${r.inspector||'—'} / ${r.facility||'—'} / ${r.weather||'—'}</div>
-      <div class="history-badges">${badges}</div>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div class="history-date">${fmtDate(r.date)}</div>
+          <div class="history-meta">${r.inspector||'—'} / ${r.facility||'—'} / ${r.weather||'—'}</div>
+          <div class="history-badges">${badges}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0" onclick="event.stopPropagation()">
+          <button class="btn btn-success btn-sm" style="min-height:44px;padding:8px 14px" onclick="editRecord('${r.id}')">編集</button>
+          <button class="btn btn-danger btn-sm" style="min-height:44px;padding:8px 14px" onclick="deleteRecordById('${r.id}')">削除</button>
+        </div>
+      </div>
     </div>`;
   }).join('');
 }
@@ -1067,6 +1075,15 @@ function deleteRecord() {
   delete recs[currentRecordId];
   try { localStorage.setItem(recKey(), JSON.stringify(recs)); } catch(e) {}
   closeModal(); renderHistory();
+}
+
+function deleteRecordById(id) {
+  if (!confirm('この記録を削除しますか？')) return;
+  const recs = getRecords();
+  delete recs[id];
+  try { localStorage.setItem(recKey(), JSON.stringify(recs)); } catch(e) {}
+  if (currentRecordId === id) closeModal();
+  renderHistory();
 }
 
 // ===================== 改修推奨資料 =====================
