@@ -146,6 +146,14 @@ body.modal-open { overflow: hidden; }
   <p>スマートフォン対応 点検管理システム</p>
 </header>
 
+<!-- file://プロトコル警告バナー -->
+<div id="ls-warning" style="display:none;background:#c0392b;color:#fff;padding:12px 16px;font-size:14px;line-height:1.6;position:sticky;top:0;z-index:150">
+  <strong>⚠ データが保存されません</strong><br>
+  このファイルは <code style="background:rgba(0,0,0,.3);padding:1px 5px;border-radius:3px">file://</code> または制限された環境で開かれているため、<strong>入力データが保存されません</strong>。<br>
+  正しく動作させるには <strong>HTTPSのURLからアクセス</strong>してください（GitHub Pages / Netlify 等）。<br>
+  <span style="font-size:12px;opacity:.85">詳しくは README をご覧ください。</span>
+</div>
+
 <div class="eq-bar" id="eq-bar">
   <button class="eq-btn active" onclick="switchEquipment('main')">高圧受電設備</button>
   <button class="eq-btn" onclick="switchEquipment('battery')">蓄電池</button>
@@ -388,6 +396,17 @@ let editingRecordId = null;
 let _modalScrollY = 0;
 let draftTimer = null;
 
+// ===================== localStorage 動作チェック =====================
+function checkLocalStorageAvailable() {
+  try {
+    const key = '__ls_test__';
+    localStorage.setItem(key, '1');
+    const ok = localStorage.getItem(key) === '1';
+    localStorage.removeItem(key);
+    return ok;
+  } catch(e) { return false; }
+}
+
 // スクリプトはbody末尾にあるのでDOMは構築済み。
 // iOS WebView/QuickLook等でreadyState判定が信頼できないため
 // 即時実行とDOMContentLoadedの両方で_init()を呼ぶ
@@ -395,6 +414,11 @@ let _initialized = false;
 function _init() {
   if (_initialized) return;
   _initialized = true;
+  // localStorage が使えない環境（file://、QuickLook等）を検出して警告
+  if (!checkLocalStorageAvailable()) {
+    const w = document.getElementById('ls-warning');
+    if (w) w.style.display = 'block';
+  }
   try {
     document.getElementById('date').value = new Date().toISOString().slice(0,10);
     buildEntryForm();
@@ -1148,6 +1172,11 @@ function exportData() {
 
 function importData(e) {
   const file = e.target.files[0]; if (!file) return;
+  if (!checkLocalStorageAvailable()) {
+    alert('データを保存できません。\nfile:// や制限された環境ではなく、HTTPSのURLからアクセスしてください。');
+    e.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = ev => {
     try {
@@ -1156,12 +1185,16 @@ function importData(e) {
         const existing = getRecords();
         const merged = { ...existing, ...data.records };
         localStorage.setItem(recKey(), JSON.stringify(merged));
+        // 保存されたか確認
+        const saved = localStorage.getItem(recKey());
+        if (!saved) throw new Error('localStorage保存失敗');
       }
       if (data.config) saveConfig(data.config);
       alert(`インポート完了！\n記録：${Object.keys(data.records||{}).length}件`);
       renderHistory(); buildEntryForm(); renderSettingsPage();
-    } catch(err) { alert('ファイルの読み込みに失敗しました'); }
+    } catch(err) { alert('ファイルの読み込みに失敗しました\n' + err.message); }
   };
+  reader.onerror = () => alert('ファイルの読み込みに失敗しました。ファイルを確認してください。');
   reader.readAsText(file);
   e.target.value = '';
 }
@@ -1228,6 +1261,11 @@ function exportConfig() {
 
 function importConfigFile(e) {
   const file = e.target.files[0]; if (!file) return;
+  if (!checkLocalStorageAvailable()) {
+    alert('設定を保存できません。\nfile:// や制限された環境ではなく、HTTPSのURLからアクセスしてください。');
+    e.target.value = '';
+    return;
+  }
   const reader = new FileReader();
   reader.onload = ev => {
     try {
@@ -1240,10 +1278,14 @@ function importConfigFile(e) {
         if (data.defaults.battery)   localStorage.setItem('inspection_default_battery',   JSON.stringify(data.defaults.battery));
         if (data.defaults.generator) localStorage.setItem('inspection_default_generator', JSON.stringify(data.defaults.generator));
       }
+      // 保存されたか確認
+      const saved = localStorage.getItem('inspection_config') || localStorage.getItem('inspection_config_battery') || localStorage.getItem('inspection_config_generator');
+      if (!saved) throw new Error('localStorage保存失敗');
       alert('設定のインポートが完了しました');
       renderSettingsPage(); buildEntryForm();
-    } catch(err) { alert('ファイルの読み込みに失敗しました'); }
+    } catch(err) { alert('ファイルの読み込みに失敗しました\n' + err.message); }
   };
+  reader.onerror = () => alert('設定ファイルの読み込みに失敗しました。ファイルを確認してください。');
   reader.readAsText(file);
   e.target.value = '';
 }
