@@ -568,25 +568,30 @@ function buildEntryForm() {
         const phaseLabels = getPhaseLabels(phases, m.phasePrefix);
         const row = document.createElement('div');
         row.className = 'form-row';
+        const mult = m.multiplier || 1;
+        const multBadge = mult !== 1
+          ? `<span class="unit" style="color:#e67e22;font-weight:bold;white-space:nowrap">×${mult}</span>` : '';
         if (!phaseLabels) {
           const pv = prevMs[m.key];
-          const prevHtml = (pv !== undefined && pv !== '')
-            ? `<div class="prev-val">前回${prevDate}: ${pv} ${esc(m.unit)}</div>` : '';
+          const pvDisp = (pv !== undefined && pv !== '') ? applyMult(pv, mult) : undefined;
+          const prevHtml = pvDisp !== undefined
+            ? `<div class="prev-val">前回${prevDate}: ${pvDisp} ${esc(m.unit)}</div>` : '';
           row.style.flexWrap = 'wrap';
           row.innerHTML = `<label>${esc(m.label)}</label>
             <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
-            <span class="unit">${esc(m.unit)}</span>
+            <span class="unit">${esc(m.unit)}</span>${multBadge}
             ${prevHtml}`;
         } else if (phases >= 5) {
           const pvArr = prevMs[m.key];
           const cells = phaseLabels.map((lbl, i) => {
             const pv = Array.isArray(pvArr) ? pvArr[i] : undefined;
-            const prevCell = (pv !== undefined && pv !== '')
-              ? `<span style="font-size:10px;color:#aaa">前:${pv}</span>` : '';
+            const pvDisp = (pv !== undefined && pv !== '') ? applyMult(pv, mult) : undefined;
+            const prevCell = pvDisp !== undefined
+              ? `<span style="font-size:10px;color:#aaa">前:${pvDisp}</span>` : '';
             return `<div class="meas-cell">
                <span class="meas-lbl">${lbl}</span>
                <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any">
-               <span class="meas-unit">${esc(m.unit)}</span>
+               <span class="meas-unit">${esc(m.unit)}${mult !== 1 ? `<b style="color:#e67e22"> ×${mult}</b>` : ''}</span>
                ${prevCell}
              </div>`;
           }).join('');
@@ -602,11 +607,15 @@ function buildEntryForm() {
           const pv = prevMs[m.key];
           const prevText = pv
             ? (Array.isArray(pv)
-                ? phaseLabels.map((lbl,i) => (pv[i]!==undefined && pv[i]!=='') ? `${lbl}:${pv[i]}${esc(m.unit)}` : '').filter(Boolean).join('　')
-                : `${pv} ${esc(m.unit)}`)
+                ? phaseLabels.map((lbl,i) => {
+                    const v = pv[i];
+                    return (v!==undefined && v!=='') ? `${lbl}:${applyMult(v,mult)}${esc(m.unit)}` : '';
+                  }).filter(Boolean).join('　')
+                : `${applyMult(pv,mult)} ${esc(m.unit)}`)
             : '';
-          const prevHtml = prevText ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
-          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
+          const prevHtml = prevText
+            ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
+          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}${multBadge}</label>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>
             ${prevHtml}`;
           row.style.flexWrap = 'wrap';
@@ -902,12 +911,13 @@ function buildAnnualHTML(recs, year) {
   cfg.forEach(cat => {
     cat.measurements.forEach(m => {
       const pl = getPhaseLabels(m.phases || 1, m.phasePrefix);
+      const mult = m.multiplier || 1;
       if (!pl) {
         let row = `<tr>${TD(esc(m.label))}${TD(esc(m.unit), 'text-align:center')}`;
         mnums.forEach(mo => {
           const rec = recs.find(r => r.date.slice(5, 7) === String(mo).padStart(2, '0'));
           const val = rec ? ((rec.measurements || {})[m.key] || '') : '';
-          row += TD(val, 'text-align:center');
+          row += TD(val !== '' ? applyMult(val, mult) : '', 'text-align:center');
         });
         measRows += row + '</tr>';
       } else {
@@ -917,7 +927,7 @@ function buildAnnualHTML(recs, year) {
             const rec = recs.find(r => r.date.slice(5, 7) === String(mo).padStart(2, '0'));
             const vals = rec ? ((rec.measurements || {})[m.key] || []) : [];
             const val = Array.isArray(vals) ? (vals[i] || '') : '';
-            row += TD(val, 'text-align:center');
+            row += TD(val !== '' ? applyMult(val, mult) : '', 'text-align:center');
           });
           measRows += row + '</tr>';
         });
@@ -1015,13 +1025,14 @@ function buildRecordHTML(r) {
     cat.measurements.forEach(m => {
       const val = ms[m.key];
       if (val === undefined || val === '') return;
+      const mult = m.multiplier || 1;
       if (Array.isArray(val)) {
         const phases = m.phases || val.length;
         const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
-        const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${v} ${esc(m.unit)}` : '').filter(Boolean).join('　');
+        const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　');
         if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
       } else {
-        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(val+' '+esc(m.unit))}</tr>`);
+        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit))}</tr>`);
       }
     });
   });
@@ -1378,6 +1389,11 @@ function renderSettingsPage(openSet) {
                 style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
                 placeholder="接頭語" title="ラベルの接頭語（例：セル）"
                 onchange="renameMeas(${ci},${mi},'phasePrefix',this.value)">
+              <span style="font-size:13px;color:var(--muted);white-space:nowrap">×</span>
+              <input type="number" value="${m.multiplier||1}" step="any" min="0.000001"
+                style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
+                title="乗数（CT比・PT比など。入力値にこの数をかけて表示します）" placeholder="乗数"
+                onchange="renameMeas(${ci},${mi},'multiplier',parseFloat(this.value)||1)">
               <button class="btn btn-warning btn-sm" onclick="dupMeas(${ci},${mi})">複製</button>
               <button class="btn btn-danger btn-sm" onclick="deleteMeas(${ci},${mi})">削除</button>
             </div>`).join('')}
@@ -1392,6 +1408,10 @@ function renderSettingsPage(openSet) {
           <input type="text" id="new-meas-prefix-${ci}"
             style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
             placeholder="接頭語" title="ラベルの接頭語（例：セル）">
+          <span style="font-size:13px;color:var(--muted);white-space:nowrap">×</span>
+          <input type="number" value="1" step="any" min="0.000001" id="new-meas-mult-${ci}"
+            style="width:64px;padding:5px 6px;border:1px solid var(--border);border-radius:6px;font-size:16px"
+            title="乗数（デフォルト1）" placeholder="乗数">
           <button class="btn btn-primary btn-sm" onclick="addMeas(${ci})">追加</button>
         </div>
       </div>`;
@@ -1484,9 +1504,11 @@ function addMeas(ci) {
   const label  = document.getElementById('new-meas-label-'+ci).value.trim(); if (!label) return;
   const unit        = document.getElementById('new-meas-unit-'+ci).value.trim();
   const phases      = +(document.getElementById('new-meas-phases-'+ci).value) || 1;
-  const phasePrefix = document.getElementById('new-meas-prefix-'+ci).value.trim();
+  const phasePrefix  = document.getElementById('new-meas-prefix-'+ci).value.trim();
+  const multiplier   = parseFloat(document.getElementById('new-meas-mult-'+ci).value) || 1;
   const entry = { key: 'm_'+Date.now(), label, unit, phases };
   if (phasePrefix) entry.phasePrefix = phasePrefix;
+  if (multiplier !== 1) entry.multiplier = multiplier;
   modifyConfig(cfg => cfg[ci].measurements.push(entry));
 }
 function dupMeas(ci, mi) {
@@ -1533,6 +1555,13 @@ function getPhaseLabels(n, prefix) {
   }
   const p = prefix || '';
   return Array.from({length: n}, (_, i) => `${p}${i+1}`);
+}
+
+function applyMult(val, mult) {
+  if (!mult || mult === 1) return val;
+  const n = parseFloat(val);
+  if (isNaN(n) || val === '' || val === undefined) return val;
+  return parseFloat((n * mult).toPrecision(10));
 }
 
 function esc(s) {
