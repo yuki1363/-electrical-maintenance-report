@@ -25,7 +25,7 @@ header h1 { font-size: 17px; font-weight: bold; }
 header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 
 .tabs { display: flex; background: var(--primary); }
-.tab  { flex: 1; padding: 13px 6px; text-align: center; color: rgba(255,255,255,.7); cursor: pointer; font-size: 13px; border-bottom: 3px solid transparent; transition: all .2s; }
+.tab  { flex: 1; padding: 14px 8px; text-align: center; color: rgba(255,255,255,.7); cursor: pointer; font-size: 13px; border-bottom: 3px solid transparent; transition: all .2s; min-height: 44px; }
 .tab.active { color: #fff; border-bottom-color: #f39c12; font-weight: bold; }
 
 .page { display: none; padding: 12px; max-width: 700px; margin: 0 auto; }
@@ -43,7 +43,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .unit { font-size: 13px; color: var(--muted); white-space: nowrap; }
 
 .status-group { display: flex; gap: 5px; flex: 1; }
-.status-btn { flex: 1; padding: 11px 4px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; background: #f8f9fa; transition: all .15s; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.status-btn { flex: 1; padding: 11px 8px; border: 1px solid var(--border); border-radius: 6px; text-align: center; cursor: pointer; font-size: 13px; background: #f8f9fa; transition: all .15s; user-select: none; touch-action: manipulation; -webkit-tap-highlight-color: transparent; min-height: 44px; }
 .status-btn.good.active    { background: var(--good);    color: #fff; border-color: var(--good); }
 .status-btn.caution.active { background: var(--caution); color: #fff; border-color: var(--caution); }
 .status-btn.repair.active  { background: var(--repair);  color: #fff; border-color: var(--repair); }
@@ -99,7 +99,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
   touch-action: manipulation;
   user-select: none;
 }
-body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right: 0; }
+body.modal-open { overflow: hidden; }
 .modal-overlay.active { -webkit-overflow-scrolling: touch; }
 
 /* Print */
@@ -125,8 +125,8 @@ body.modal-open { overflow: hidden; position: fixed; width: 100%; left: 0; right
 .meas-cell { display:flex; flex-direction:column; align-items:center; gap:2px; }
 .meas-lbl  { font-size:11px; color:var(--muted); white-space:nowrap; text-align:center; }
 .meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:16px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
-.meas-unit { font-size:10px; color:var(--muted); }
-.prev-val { font-size:11px; color:var(--muted); margin-top:3px; width:100%; }
+.meas-unit { font-size:12px; color:var(--muted); }
+.prev-val { font-size:12px; color:var(--muted); margin-top:3px; width:100%; }
 /* Sub-tabs */
 .sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
 .sub-tab  { flex:1; padding:13px 8px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
@@ -777,7 +777,6 @@ function openRecord(id) {
   showDeleteBtn(true);
   document.getElementById('all-eq-btn').style.display = hasOtherEquipRec(r.date) ? '' : 'none';
   _modalScrollY = window.scrollY;
-  document.body.style.top = `-${_modalScrollY}px`;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
 }
@@ -800,7 +799,6 @@ function showAnnualReport() {
   showDeleteBtn(false);
   document.getElementById('all-eq-btn').style.display = 'none';
   _modalScrollY = window.scrollY;
-  document.body.style.top = `-${_modalScrollY}px`;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
 }
@@ -936,7 +934,6 @@ function buildAnnualHTML(recs, year) {
 function closeModal() {
   document.getElementById('modal').classList.remove('active');
   document.body.classList.remove('modal-open');
-  document.body.style.top = '';
   window.scrollTo(0, _modalScrollY);
   currentRecordId = null;
   currentPreviewData = null;
@@ -1026,7 +1023,6 @@ function previewPrint() {
   showDeleteBtn(false);
   document.getElementById('all-eq-btn').style.display = 'none';
   _modalScrollY = window.scrollY;
-  document.body.style.top = `-${_modalScrollY}px`;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
   setTimeout(() => window.print(), 300);
@@ -1180,7 +1176,9 @@ function hasOtherEquipRec(date) {
   return ['main','battery','generator'].some(eq => {
     if (eq === activeEquipment) return false;
     const key = eq === 'main' ? 'inspection_records' : `inspection_records_${eq}`;
-    return Object.values(JSON.parse(localStorage.getItem(key)||'{}')).some(r => r.date === date);
+    try {
+      return Object.values(JSON.parse(localStorage.getItem(key)||'{}')).some(r => r.date === date);
+    } catch(e) { return false; }
   });
 }
 
@@ -1192,7 +1190,8 @@ function printAllEquipment() {
   let html = '';
   ['main','battery','generator'].forEach(eq => {
     const key = eq === 'main' ? 'inspection_records' : `inspection_records_${eq}`;
-    const rec = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).find(r => r.date === date);
+    let rec;
+    try { rec = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).find(r => r.date === date); } catch(e) { return; }
     if (!rec) return;
     if (html) html += `<div style="page-break-before:always"></div>`;
     html += `<div style="font-size:18px;font-weight:bold;text-align:center;margin-bottom:10px">${EQ_NAMES[eq]} 日常点検記録　${fmtDate(date)}</div>`;
@@ -1206,17 +1205,23 @@ function printAllEquipment() {
 }
 
 function exportConfig() {
-  const data = {
-    main: JSON.parse(localStorage.getItem('inspection_config') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
-    battery: JSON.parse(localStorage.getItem('inspection_config_battery') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_BATTERY)),
-    generator: JSON.parse(localStorage.getItem('inspection_config_generator') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_GENERATOR)),
-    defaults: {
-      main:      JSON.parse(localStorage.getItem('inspection_default')           || 'null'),
-      battery:   JSON.parse(localStorage.getItem('inspection_default_battery')   || 'null'),
-      generator: JSON.parse(localStorage.getItem('inspection_default_generator') || 'null'),
-    },
-    exportedAt: new Date().toISOString()
-  };
+  let data;
+  try {
+    data = {
+      main: JSON.parse(localStorage.getItem('inspection_config') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG)),
+      battery: JSON.parse(localStorage.getItem('inspection_config_battery') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_BATTERY)),
+      generator: JSON.parse(localStorage.getItem('inspection_config_generator') || 'null') || JSON.parse(JSON.stringify(DEFAULT_CONFIG_GENERATOR)),
+      defaults: {
+        main:      JSON.parse(localStorage.getItem('inspection_default')           || 'null'),
+        battery:   JSON.parse(localStorage.getItem('inspection_default_battery')   || 'null'),
+        generator: JSON.parse(localStorage.getItem('inspection_default_generator') || 'null'),
+      },
+      exportedAt: new Date().toISOString()
+    };
+  } catch(e) {
+    alert('設定のエクスポートに失敗しました（プライベートモードでは使用できません）');
+    return;
+  }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
   triggerDownload(blob, `点検設定_${new Date().toISOString().slice(0,10)}.json`);
 }
@@ -1264,8 +1269,8 @@ function renderSettingsPage(openSet) {
     div.innerHTML = `
       <div class="setting-cat-header" onclick="toggleCat(this)">
         <div style="display:flex;gap:3px;flex-shrink:0" onclick="event.stopPropagation()">
-          <button class="btn btn-secondary btn-sm" style="padding:3px 7px" ${ci===0?'disabled':''} onclick="moveCat(${ci},-1)">▲</button>
-          <button class="btn btn-secondary btn-sm" style="padding:3px 7px" ${isLast?'disabled':''} onclick="moveCat(${ci},1)">▼</button>
+          <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${ci===0?'disabled':''} onclick="moveCat(${ci},-1)">▲</button>
+          <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${isLast?'disabled':''} onclick="moveCat(${ci},1)">▼</button>
         </div>
         <span class="setting-cat-title">${esc(cat.title)}</span>
         <button class="btn btn-warning btn-sm" onclick="event.stopPropagation();dupCat(${ci})">複製</button>
@@ -1282,8 +1287,8 @@ function renderSettingsPage(openSet) {
           ${cat.checks.map((item, ii) => `
             <div class="setting-item">
               <div style="display:flex;gap:2px;flex-shrink:0">
-                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${ii===0?'disabled':''} onclick="moveCheck(${ci},${ii},-1)">▲</button>
-                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${ii===cat.checks.length-1?'disabled':''} onclick="moveCheck(${ci},${ii},1)">▼</button>
+                <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${ii===0?'disabled':''} onclick="moveCheck(${ci},${ii},-1)">▲</button>
+                <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${ii===cat.checks.length-1?'disabled':''} onclick="moveCheck(${ci},${ii},1)">▼</button>
               </div>
               <input type="text" value="${esc(item.label)}" onchange="renameCheck(${ci},${ii},this.value)">
               <button class="btn btn-warning btn-sm" onclick="dupCheck(${ci},${ii})">複製</button>
@@ -1300,8 +1305,8 @@ function renderSettingsPage(openSet) {
           ${cat.measurements.map((m, mi) => `
             <div class="setting-item" style="flex-wrap:wrap;gap:4px">
               <div style="display:flex;gap:2px;flex-shrink:0">
-                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${mi===0?'disabled':''} onclick="moveMeas(${ci},${mi},-1)">▲</button>
-                <button class="btn btn-secondary btn-sm" style="padding:2px 6px" ${mi===cat.measurements.length-1?'disabled':''} onclick="moveMeas(${ci},${mi},1)">▼</button>
+                <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${mi===0?'disabled':''} onclick="moveMeas(${ci},${mi},-1)">▲</button>
+                <button class="btn btn-secondary btn-sm" style="padding:8px 10px;min-height:44px" ${mi===cat.measurements.length-1?'disabled':''} onclick="moveMeas(${ci},${mi},1)">▼</button>
               </div>
               <input type="text" value="${esc(m.label)}" onchange="renameMeas(${ci},${mi},'label',this.value)" placeholder="ラベル">
               <input type="text" class="unit-input" value="${esc(m.unit)}" onchange="renameMeas(${ci},${mi},'unit',this.value)" placeholder="単位">
@@ -1408,7 +1413,7 @@ function dupCheck(ci, ii) {
     cfg[ci].checks.splice(ii + 1, 0, copy);
   });
 }
-function deleteCheck(ci, ii) { modifyConfig(cfg => cfg[ci].checks.splice(ii,1)); }
+function deleteCheck(ci, ii) { if (!confirm('この点検項目を削除しますか？')) return; modifyConfig(cfg => cfg[ci].checks.splice(ii,1)); }
 function moveCheck(ci, ii, dir) {
   modifyConfig(cfg => {
     const a = cfg[ci].checks; const t = a[ii]; a[ii] = a[ii+dir]; a[ii+dir] = t;
@@ -1431,7 +1436,7 @@ function dupMeas(ci, mi) {
     cfg[ci].measurements.splice(mi + 1, 0, copy);
   });
 }
-function deleteMeas(ci, mi) { modifyConfig(cfg => cfg[ci].measurements.splice(mi,1)); }
+function deleteMeas(ci, mi) { if (!confirm('この計測値フィールドを削除しますか？')) return; modifyConfig(cfg => cfg[ci].measurements.splice(mi,1)); }
 function moveMeas(ci, mi, dir) {
   modifyConfig(cfg => {
     const a = cfg[ci].measurements; const t = a[mi]; a[mi] = a[mi+dir]; a[mi+dir] = t;
