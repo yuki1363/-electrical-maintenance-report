@@ -568,30 +568,25 @@ function buildEntryForm() {
         const phaseLabels = getPhaseLabels(phases, m.phasePrefix);
         const row = document.createElement('div');
         row.className = 'form-row';
-        const mult = m.multiplier || 1;
-        const multBadge = mult !== 1
-          ? `<span class="unit" style="color:#e67e22;font-weight:bold;white-space:nowrap">×${mult}</span>` : '';
         if (!phaseLabels) {
           const pv = prevMs[m.key];
-          const pvDisp = (pv !== undefined && pv !== '') ? applyMult(pv, mult) : undefined;
-          const prevHtml = pvDisp !== undefined
-            ? `<div class="prev-val">前回${prevDate}: ${pvDisp} ${esc(m.unit)}</div>` : '';
+          const prevHtml = (pv !== undefined && pv !== '')
+            ? `<div class="prev-val">前回${prevDate}: ${pv} ${esc(m.unit)}</div>` : '';
           row.style.flexWrap = 'wrap';
           row.innerHTML = `<label>${esc(m.label)}</label>
             <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
-            <span class="unit">${esc(m.unit)}</span>${multBadge}
+            <span class="unit">${esc(m.unit)}</span>
             ${prevHtml}`;
         } else if (phases >= 5) {
           const pvArr = prevMs[m.key];
           const cells = phaseLabels.map((lbl, i) => {
             const pv = Array.isArray(pvArr) ? pvArr[i] : undefined;
-            const pvDisp = (pv !== undefined && pv !== '') ? applyMult(pv, mult) : undefined;
-            const prevCell = pvDisp !== undefined
-              ? `<span style="font-size:10px;color:#aaa">前:${pvDisp}</span>` : '';
+            const prevCell = (pv !== undefined && pv !== '')
+              ? `<span style="font-size:10px;color:#aaa">前:${pv}</span>` : '';
             return `<div class="meas-cell">
                <span class="meas-lbl">${lbl}</span>
                <input type="number" inputmode="decimal" id="m_${m.key}_${i}" placeholder="—" step="any">
-               <span class="meas-unit">${esc(m.unit)}${mult !== 1 ? `<b style="color:#e67e22"> ×${mult}</b>` : ''}</span>
+               <span class="meas-unit">${esc(m.unit)}</span>
                ${prevCell}
              </div>`;
           }).join('');
@@ -607,15 +602,11 @@ function buildEntryForm() {
           const pv = prevMs[m.key];
           const prevText = pv
             ? (Array.isArray(pv)
-                ? phaseLabels.map((lbl,i) => {
-                    const v = pv[i];
-                    return (v!==undefined && v!=='') ? `${lbl}:${applyMult(v,mult)}${esc(m.unit)}` : '';
-                  }).filter(Boolean).join('　')
-                : `${applyMult(pv,mult)} ${esc(m.unit)}`)
+                ? phaseLabels.map((lbl,i) => (pv[i]!==undefined && pv[i]!=='') ? `${lbl}:${pv[i]}${esc(m.unit)}` : '').filter(Boolean).join('　')
+                : `${pv} ${esc(m.unit)}`)
             : '';
-          const prevHtml = prevText
-            ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
-          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}${multBadge}</label>
+          const prevHtml = prevText ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
+          row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>
             ${prevHtml}`;
           row.style.flexWrap = 'wrap';
