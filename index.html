@@ -1145,7 +1145,7 @@ function closeModal() {
 }
 
 function buildRecordHTML(r) {
-  const cfg = r.config || (EQ_DEFAULTS[r.equipmentType] ? JSON.parse(JSON.stringify(EQ_DEFAULTS[r.equipmentType])) : getConfig());
+  const cfg = r.config || getConfigForEquipment(r.equipmentType || activeEquipment);
   const st = r.statuses || {};
   const ms = r.measurements || {};
   const td = (v,w) => `<td style="padding:5px 7px;border:1px solid #ccc${w?';width:'+w:''}">${v}</td>`;
@@ -1185,6 +1185,33 @@ function buildRecordHTML(r) {
       msRows.push(...catRows);
     }
   });
+  // r.configで計測値が取れなかった場合、localStorageの現在のconfigで再試行
+  if (!msRows.length && Object.keys(ms).length > 0) {
+    const fbCfg = getConfigForEquipment(r.equipmentType || activeEquipment);
+    if (fbCfg !== cfg) {
+      fbCfg.forEach(cat => {
+        const catRows2 = [];
+        cat.measurements.forEach(m => {
+          const val = ms[m.key];
+          if (val === undefined || val === '') return;
+          const mult = m.multiplier || 1;
+          const q = qs[m.key] ? `　${qs[m.key]}` : '';
+          if (Array.isArray(val)) {
+            const phases = m.phases || val.length;
+            const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
+            const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　') + q;
+            if (display) catRows2.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
+          } else {
+            catRows2.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
+          }
+        });
+        if (catRows2.length) {
+          msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
+          msRows.push(...catRows2);
+        }
+      });
+    }
+  }
   if (msRows.length) {
     html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
       ${th2('計測値')}${msRows.join('')}</table>`;
@@ -1474,7 +1501,11 @@ function printAllEquipment() {
     if (!rec) return;
     if (html) html += `<div style="page-break-before:always"></div>`;
     const EQ_SECTION = { main:'高圧受電設備', battery:'蓄電池設備', generator:'発電機' };
-    html += `<div style="font-size:15px;font-weight:bold;border-left:4px solid #1a5276;padding:4px 10px;margin-bottom:10px;color:#1a5276;background:#eaf4fb">■ ${EQ_SECTION[eq]}　${fmtDate(date)}</div>`;
+    const EQ_COLOR   = { main:'#1a5276', battery:'#1e8449', generator:'#922b21' };
+    const EQ_BG      = { main:'#eaf4fb',  battery:'#eafaf1',  generator:'#fdedec' };
+    const hColor = EQ_COLOR[eq] || '#1a5276';
+    const hBg    = EQ_BG[eq]    || '#eaf4fb';
+    html += `<div style="font-size:15px;font-weight:bold;border-left:5px solid ${hColor};padding:6px 10px;margin-bottom:10px;color:${hColor};background:${hBg}">■ ${EQ_SECTION[eq]}　${fmtDate(date)}</div>`;
     html += buildRecordHTML({ ...rec, equipmentType: eq });
   });
   if (!html) { alert('印刷できる記録がありません'); return; }
