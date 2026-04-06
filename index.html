@@ -1157,21 +1157,24 @@ function buildRecordHTML(r) {
     <tr>${td('湿度')}${td((r.humidity||'—')+' %')}</tr>
   </table>`;
 
-  // 点検結果（先に表示）
-  html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
-    ${th2('点検結果')}`;
-  const cr = r.categoryRemarks || {};
-  cfg.forEach(cat => {
-    html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
-    cat.checks.forEach(item => {
-      const v = st[item.key] || 'good';
-      html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
+  // 点検結果（外観点検項目があるカテゴリのみ表示）
+  const checkCats = cfg.filter(cat => cat.checks && cat.checks.length > 0);
+  if (checkCats.length > 0) {
+    html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+      ${th2('点検結果')}`;
+    const cr = r.categoryRemarks || {};
+    checkCats.forEach(cat => {
+      html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
+      cat.checks.forEach(item => {
+        const v = st[item.key] || 'good';
+        html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
+      });
+      if (cr[cat.id]) {
+        html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
+      }
     });
-    if (cr[cat.id]) {
-      html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
-    }
-  });
-  html += '</table>';
+    html += '</table>';
+  }
 
   // 計測値
   const msRows = [];
