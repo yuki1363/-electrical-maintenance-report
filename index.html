@@ -1463,8 +1463,9 @@ function printAllEquipment() {
     try { rec = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).find(r => r.date === date); } catch(e) { return; }
     if (!rec) return;
     if (html) html += `<div style="page-break-before:always"></div>`;
-    html += `<div style="font-size:15px;font-weight:bold;border-left:4px solid #1a5276;padding:4px 10px;margin-bottom:10px;color:#1a5276;background:#eaf4fb">■ ${EQ_NAMES[eq]}設備　${fmtDate(date)}</div>`;
-    html += buildRecordHTML(rec);
+    const EQ_SECTION = { main:'高圧受電設備', battery:'蓄電池設備', generator:'発電機' };
+    html += `<div style="font-size:15px;font-weight:bold;border-left:4px solid #1a5276;padding:4px 10px;margin-bottom:10px;color:#1a5276;background:#eaf4fb">■ ${EQ_SECTION[eq]}　${fmtDate(date)}</div>`;
+    html += buildRecordHTML({ ...rec, equipmentType: eq });
   });
   if (!html) { alert('印刷できる記録がありません'); return; }
   document.getElementById('print-title').textContent = '高圧受電設備等　点検記録';
