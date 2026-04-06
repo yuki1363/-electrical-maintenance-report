@@ -633,7 +633,8 @@ function buildEntryForm() {
              </div>`;
           }).join('');
           row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
-            <div class="meas-grid">${cells}</div>`;
+            <div class="meas-grid">${cells}</div>
+            <select id="q_${m.key}" class="q-sel" style="margin-top:4px"><option value="">—</option><option value="未満">未満</option><option value="以上">以上</option></select>`;
           row.style.flexWrap = 'wrap';
         } else {
           const inputs = phaseLabels.map((lbl, i) =>
