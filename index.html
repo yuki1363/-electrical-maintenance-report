@@ -143,6 +143,8 @@ body.modal-open { overflow: hidden; }
 .eq-bar { display:flex; background:#0e3460; overflow-x:auto; gap:2px; padding:6px 8px; }
 .eq-btn { flex-shrink:0; padding:11px 16px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
 .eq-btn.active { background:#f39c12; color:#fff; font-weight:bold; }
+/* Qualifier dropdown */
+.q-sel { font-size:12px; padding:3px 6px; border:1px solid var(--border); border-radius:4px; background:#fff; color:var(--text); margin-left:4px; vertical-align:middle; }
 </style>
 </head>
 <body>
@@ -186,7 +188,7 @@ body.modal-open { overflow: hidden; }
 <!-- 新規入力 -->
 <div class="page active" id="page-entry">
   <div class="card" style="margin-top:12px">
-    <div class="card-title">基本情報</div>
+    <div class="card-title">基本情報 <span style="font-size:11px;font-weight:normal;color:var(--muted)">（全設備共通・自動保存）</span></div>
     <div class="form-row"><label>点検日</label><input type="date" id="date"></div>
     <div class="form-row"><label>点検者名</label><input type="text" id="inspector" placeholder="氏名を入力"></div>
     <div class="form-row"><label>設備名称</label><input type="text" id="facility" placeholder="例：第1キュービクル"></div>
@@ -392,6 +394,7 @@ function switchEquipment(eq) {
   currentStatuses = {};
   buildEntryForm();
   checkDraftOnLoad();
+  if (!editingRecordId) loadBasicInfo(); // 基本情報を共通復元（編集中は上書きしない）
   renderHistory();
   if (document.getElementById('page-settings').classList.contains('active')) renderSettingsPage();
 }
@@ -542,6 +545,12 @@ function loadDataIntoForm(data) {
       if (el && val) el.value = val;
     });
   }
+  if (data.qualifiers) {
+    Object.entries(data.qualifiers).forEach(([key, val]) => {
+      const el = document.getElementById('q_' + key);
+      if (el) el.value = val;
+    });
+  }
 }
 
 function restoreDraft() {
@@ -608,6 +617,7 @@ function buildEntryForm() {
           row.innerHTML = `<label>${esc(m.label)}</label>
             <input type="number" inputmode="decimal" id="m_${m.key}" placeholder="—" step="any" style="max-width:110px">
             <span class="unit">${esc(m.unit)}</span>
+            <select id="q_${m.key}" class="q-sel"><option value="">—</option><option value="未満">未満</option><option value="以上">以上</option></select>
             ${prevHtml}`;
         } else if (phases >= 5) {
           const pvArr = prevMs[m.key];
@@ -639,7 +649,9 @@ function buildEntryForm() {
             : '';
           const prevHtml = prevText ? `<div class="prev-val">前回${prevDate}: ${prevText}</div>` : '';
           row.innerHTML = `<label style="width:100%;margin-bottom:4px">${esc(m.label)}</label>
-            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">${inputs}
+              <select id="q_${m.key}" class="q-sel"><option value="">—</option><option value="未満">未満</option><option value="以上">以上</option></select>
+            </div>
             ${prevHtml}`;
           row.style.flexWrap = 'wrap';
         }
@@ -775,6 +787,11 @@ function collectForm() {
       if (vals.some(v => v !== '')) measurements[m.key] = vals;
     }
   }));
+  const qualifiers = {};
+  cfg.forEach(cat => cat.measurements.forEach(m => {
+    const el = document.getElementById('q_' + m.key);
+    if (el && el.value) qualifiers[m.key] = el.value;
+  }));
   return {
     date: document.getElementById('date').value,
     inspector: document.getElementById('inspector').value,
@@ -784,6 +801,7 @@ function collectForm() {
     humidity: document.getElementById('humidity').value,
     statuses: {...currentStatuses},
     measurements,
+    qualifiers,
     categoryRemarks: Object.fromEntries(cfg.map(cat => {
       const el = document.getElementById('cat-rem-'+cat.id);
       return [cat.id, el ? el.value : ''];
@@ -1058,18 +1076,20 @@ function buildRecordHTML(r) {
 
   // 計測値
   const msRows = [];
+  const qs = r.qualifiers || {};
   cfg.forEach(cat => {
     cat.measurements.forEach(m => {
       const val = ms[m.key];
       if (val === undefined || val === '') return;
       const mult = m.multiplier || 1;
+      const q = qs[m.key] ? `　${qs[m.key]}` : '';
       if (Array.isArray(val)) {
         const phases = m.phases || val.length;
         const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
-        const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　');
+        const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　') + q;
         if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
       } else {
-        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit))}</tr>`);
+        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
       }
     });
   });
