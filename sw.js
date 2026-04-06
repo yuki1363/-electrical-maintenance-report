@@ -1,5 +1,5 @@
-const CACHE = 'inspection-v1';
-const ASSETS = ['./', './index.html'];
+const CACHE = 'inspection-v2';
+const ASSETS = ['./', './index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -15,12 +15,13 @@ self.addEventListener('activate', e => {
   );
 });
 
+// ネットワーク優先・失敗時にキャッシュフォールバック
 self.addEventListener('fetch', e => {
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+    fetch(e.request).then(res => {
       const clone = res.clone();
       caches.open(CACHE).then(c => c.put(e.request, clone));
       return res;
-    }))
+    }).catch(() => caches.match(e.request))
   );
 });
