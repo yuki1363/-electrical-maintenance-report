@@ -1176,10 +1176,11 @@ function buildRecordHTML(r) {
     html += '</table>';
   }
 
-  // 計測値
+  // 計測値（カテゴリ別ヘッダー付き）
   const msRows = [];
   const qs = r.qualifiers || {};
   cfg.forEach(cat => {
+    const catRows = [];
     cat.measurements.forEach(m => {
       const val = ms[m.key];
       if (val === undefined || val === '') return;
@@ -1189,11 +1190,15 @@ function buildRecordHTML(r) {
         const phases = m.phases || val.length;
         const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
         const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　') + q;
-        if (display) msRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
+        if (display) catRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
       } else {
-        msRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
+        catRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
       }
     });
+    if (catRows.length) {
+      msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
+      msRows.push(...catRows);
+    }
   });
   if (msRows.length) {
     html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
