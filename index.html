@@ -429,10 +429,16 @@ function _init() {
   }
   try {
     document.getElementById('date').value = new Date().toISOString().slice(0,10);
+    loadBasicInfo();
     buildEntryForm();
     checkDraftOnLoad();
     renderHistory();
     renderSettingsPage();
+    // 基本情報フィールドの変更を自動保存
+    ['inspector','facility','weather'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('change', saveBasicInfo);
+    });
     var pe = document.getElementById('page-entry');
     if (pe) {
       pe.addEventListener('input', scheduleDraftSave);
@@ -445,6 +451,30 @@ function _init() {
 }
 document.addEventListener('DOMContentLoaded', _init);
 _init();
+
+// ===================== 基本情報の保持 =====================
+function saveBasicInfo() {
+  try {
+    localStorage.setItem('inspection_basic_info', JSON.stringify({
+      inspector: document.getElementById('inspector').value,
+      facility:  document.getElementById('facility').value,
+      weather:   document.getElementById('weather').value,
+    }));
+  } catch(e) {}
+}
+
+function loadBasicInfo() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('inspection_basic_info'));
+    if (!saved) return;
+    if (saved.inspector) document.getElementById('inspector').value = saved.inspector;
+    if (saved.facility)  document.getElementById('facility').value  = saved.facility;
+    if (saved.weather) {
+      const sel = document.getElementById('weather');
+      if (sel) sel.value = saved.weather;
+    }
+  } catch(e) {}
+}
 
 // ===================== 下書き =====================
 function checkDraftOnLoad() {
@@ -701,6 +731,7 @@ function saveRecord() {
     return;
   }
   clearDraft();
+  saveBasicInfo();  // 点検者名・設備名称・天候を次回のデフォルトとして保持
   alert('保存しました');
   renderHistory();
 }
