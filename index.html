@@ -99,7 +99,7 @@ header p  { font-size: 13px; opacity: .8; margin-top: 2px; }
 .no-records { text-align: center; color: var(--muted); padding: 30px; font-size: 14px; }
 
 /* Mobile touch */
-.tab, .sub-tab, .eq-btn, .btn, .btn-sm, .close-btn,
+.tab, .eq-btn, .btn, .btn-sm, .close-btn,
 .setting-cat-header, .history-item, .status-btn {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -133,12 +133,6 @@ body.modal-open { overflow: hidden; }
 .meas-cell input { width:100%; text-align:center; padding:5px 2px; font-size:16px; border:1px solid var(--border); border-radius:6px; background:#fafafa; }
 .meas-unit { font-size:12px; color:var(--muted); }
 .prev-val { font-size:12px; color:var(--muted); margin-top:3px; width:100%; }
-/* Sub-tabs */
-.sub-tabs { display:flex; background:#fff; border-bottom:2px solid var(--border); margin-top:12px; border-radius:8px 8px 0 0; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.08); }
-.sub-tab  { flex:1; padding:13px 8px; text-align:center; cursor:pointer; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px; transition:all .2s; }
-.sub-tab.active { color:var(--primary); border-bottom-color:var(--primary); font-weight:bold; background:#f0f7ff; }
-.sub-page { display:none; }
-.sub-page.active { display:block; }
 /* Equipment selector */
 .eq-bar { display:flex; background:#0e3460; overflow-x:auto; gap:2px; padding:6px 8px; }
 .eq-btn { flex-shrink:0; padding:11px 16px; border:none; border-radius:20px; font-size:13px; cursor:pointer; background:rgba(255,255,255,.15); color:rgba(255,255,255,.8); font-family:inherit; white-space:nowrap; transition:all .2s; }
@@ -200,26 +194,13 @@ body.modal-open { overflow: hidden; }
     <div class="form-row" style="flex-wrap:wrap"><label>湿度</label><input type="number" inputmode="decimal" id="humidity" placeholder="—" step="1" style="max-width:90px"><span class="unit">%</span><div class="prev-val" id="prev-humidity"></div></div>
   </div>
 
-  <!-- サブタブ -->
-  <div class="sub-tabs">
-    <div class="sub-tab active" onclick="showSubTab('measure')">計測データ</div>
-    <div class="sub-tab" onclick="showSubTab('visual')">外観点検</div>
-  </div>
-
-  <!-- 計測データ -->
-  <div class="sub-page active" id="sub-measure">
-    <div id="entry-measurements"></div>
-    <div class="card">
-      <div class="card-title">特記事項</div>
-      <div class="form-row" style="flex-direction:column;align-items:stretch">
-        <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
-      </div>
+  <!-- 計測値・外観点検（統合） -->
+  <div id="entry-form"></div>
+  <div class="card" style="margin-top:4px">
+    <div class="card-title">特記事項</div>
+    <div class="form-row" style="flex-direction:column;align-items:stretch">
+      <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
     </div>
-  </div>
-
-  <!-- 外観点検 -->
-  <div class="sub-page" id="sub-visual">
-    <div id="entry-checks"></div>
   </div>
   <div id="edit-banner" style="display:none;background:#eafaf1;border:1px solid #1e8449;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
@@ -619,11 +600,9 @@ function scheduleDraftSave() {
 function buildEntryForm() {
   currentStatuses = {};
   const cfg = getConfig();
-  const measCont  = document.getElementById('entry-measurements');
-  const checkCont = document.getElementById('entry-checks');
-  if (!measCont || !checkCont) return;
-  measCont.innerHTML  = '';
-  checkCont.innerHTML = '';
+  const formCont = document.getElementById('entry-form');
+  if (!formCont) return;
+  formCont.innerHTML = '';
 
   // 前回データ取得
   const lastRec  = Object.values(getRecords()).sort((a,b) => b.date.localeCompare(a.date))[0] || null;
@@ -642,11 +621,22 @@ function buildEntryForm() {
   });
 
   cfg.forEach(cat => {
-    // --- 計測データ カード ---
-    if (cat.measurements.length > 0) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
+    const hasMeas   = cat.measurements.length > 0;
+    const hasChecks = cat.checks.length > 0;
+    if (!hasMeas && !hasChecks) return;
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
+
+    // --- 計測値 ---
+    if (hasMeas) {
+      if (hasChecks) {
+        const lbl = document.createElement('div');
+        lbl.style.cssText = 'font-size:12px;font-weight:bold;color:var(--primary);margin:4px 0 6px;border-left:3px solid var(--primary);padding-left:6px';
+        lbl.textContent = '計測値';
+        card.appendChild(lbl);
+      }
       cat.measurements.forEach(m => {
         const phases = m.phases || 1;
         const phaseLabels = getPhaseLabels(phases, m.phasePrefix);
@@ -720,16 +710,17 @@ function buildEntryForm() {
         }
         card.appendChild(row);
       });
-      measCont.appendChild(card);
     }
 
-    // --- 外観点検 カード ---
-    if (cat.checks.length > 0) {
-      const card = document.createElement('div');
-      card.className = 'card';
-      card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
+    // --- 外観点検 ---
+    if (hasChecks) {
+      if (hasMeas) {
+        const sep = document.createElement('div');
+        sep.style.cssText = 'font-size:12px;font-weight:bold;color:#1e8449;margin:12px 0 6px;border-left:3px solid #1e8449;padding-left:6px';
+        sep.textContent = '外観点検';
+        card.appendChild(sep);
+      }
       cat.checks.forEach(item => {
-        // 編集時など既存値があればそのまま、なければ未選択
         const cur = currentStatuses[item.key] || null;
         const ps = prevSt[item.key];
         const prevHtml = ps ? `<div class="prev-val">前回${prevDate}: ${SL[ps]||ps}</div>` : '';
@@ -746,20 +737,21 @@ function buildEntryForm() {
           ${prevHtml}`;
         card.appendChild(row);
       });
-      // カテゴリ備考
-      const pr = prevCr[cat.id];
-      const prevRemHtml = pr ? `<div class="prev-val" style="margin-top:4px">前回備考: ${esc(pr)}</div>` : '';
-      const remRow = document.createElement('div');
-      remRow.style.cssText = 'margin-top:8px';
-      remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
-        <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
-          style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:16px;font-family:inherit;background:#fafafa"></textarea>
-        ${prevRemHtml}`;
-      card.appendChild(remRow);
-      checkCont.appendChild(card);
     }
-  });
 
+    // --- カテゴリ備考 ---
+    const pr = prevCr[cat.id];
+    const prevRemHtml = pr ? `<div class="prev-val" style="margin-top:4px">前回備考: ${esc(pr)}</div>` : '';
+    const remRow = document.createElement('div');
+    remRow.style.cssText = 'margin-top:8px';
+    remRow.innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:4px">備考</div>
+      <textarea id="cat-rem-${cat.id}" placeholder="このカテゴリの気になる点・メモ"
+        style="width:100%;min-height:52px;resize:vertical;border:1px solid var(--border);border-radius:6px;padding:7px 9px;font-size:16px;font-family:inherit;background:#fafafa"></textarea>
+      ${prevRemHtml}`;
+    card.appendChild(remRow);
+
+    formCont.appendChild(card);
+  });
 }
 
 function setPrevVals(pairs) {
@@ -773,12 +765,6 @@ function setSt(key, val, el) {
   scheduleDraftSave();
 }
 
-// ===================== サブタブ =====================
-function showSubTab(name) {
-  document.querySelectorAll('.sub-tab').forEach((t,i) => t.classList.toggle('active', ['measure','visual'][i]===name));
-  document.querySelectorAll('.sub-page').forEach(p => p.classList.remove('active'));
-  document.getElementById('sub-'+name).classList.add('active');
-}
 
 // ===================== タブ =====================
 function showTab(tab) {
