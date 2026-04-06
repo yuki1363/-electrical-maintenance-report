@@ -1289,9 +1289,19 @@ function _downloadFallback(blob, filename) {
 }
 
 function exportData() {
-  const data = { records: getRecords(), config: getConfig(), exportedAt: new Date().toISOString() };
+  const EQ_KEYS = { main: 'inspection_records', battery: 'inspection_records_battery', generator: 'inspection_records_generator' };
+  const CFG_KEYS = { main: 'inspection_config', battery: 'inspection_config_battery', generator: 'inspection_config_generator' };
+  const data = {
+    records: Object.fromEntries(Object.entries(EQ_KEYS).map(([eq, k]) => [eq, JSON.parse(localStorage.getItem(k) || '{}')])),
+    config:  Object.fromEntries(Object.entries(CFG_KEYS).map(([eq, k]) => {
+      const cfg = JSON.parse(localStorage.getItem(k) || 'null');
+      return [eq, cfg || JSON.parse(JSON.stringify(EQ_DEFAULTS[eq]))];
+    })),
+    exportedAt: new Date().toISOString()
+  };
+  const totalRecs = Object.values(data.records).reduce((s, r) => s + Object.keys(r).length, 0);
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  triggerDownload(blob, `点検記録_${new Date().toISOString().slice(0,10)}.json`);
+  triggerDownload(blob, `点検記録_全設備_${new Date().toISOString().slice(0,10)}.json`);
 }
 
 function importData(e) {
@@ -1305,16 +1315,38 @@ function importData(e) {
   reader.onload = ev => {
     try {
       const data = JSON.parse(ev.target.result);
+      const EQ_REC_KEYS = { main: 'inspection_records', battery: 'inspection_records_battery', generator: 'inspection_records_generator' };
+      const EQ_CFG_KEYS = { main: 'inspection_config', battery: 'inspection_config_battery', generator: 'inspection_config_generator' };
+      let totalRecs = 0;
       if (data.records) {
-        const existing = getRecords();
-        const merged = { ...existing, ...data.records };
-        localStorage.setItem(recKey(), JSON.stringify(merged));
-        // 保存されたか確認
-        const saved = localStorage.getItem(recKey());
-        if (!saved) throw new Error('localStorage保存失敗');
+        // 新形式: { main:{...}, battery:{...}, generator:{...} }
+        const isNewFmt = ['main','battery','generator'].some(k => k in data.records);
+        if (isNewFmt) {
+          ['main','battery','generator'].forEach(eq => {
+            if (!data.records[eq]) return;
+            const key = EQ_REC_KEYS[eq];
+            const merged = { ...JSON.parse(localStorage.getItem(key)||'{}'), ...data.records[eq] };
+            localStorage.setItem(key, JSON.stringify(merged));
+            totalRecs += Object.keys(data.records[eq]).length;
+          });
+        } else {
+          // 旧形式: フラットな記録オブジェクト（後方互換）
+          const merged = { ...JSON.parse(localStorage.getItem(recKey())||'{}'), ...data.records };
+          localStorage.setItem(recKey(), JSON.stringify(merged));
+          totalRecs = Object.keys(data.records).length;
+        }
       }
-      if (data.config) saveConfig(data.config);
-      alert(`インポート完了！\n記録：${Object.keys(data.records||{}).length}件`);
+      if (data.config) {
+        const isNewFmt = ['main','battery','generator'].some(k => k in data.config);
+        if (isNewFmt) {
+          ['main','battery','generator'].forEach(eq => {
+            if (data.config[eq]) localStorage.setItem(EQ_CFG_KEYS[eq], JSON.stringify(data.config[eq]));
+          });
+        } else {
+          saveConfig(data.config); // 旧形式
+        }
+      }
+      alert(`インポート完了！\n記録：${totalRecs}件`);
       renderHistory(); buildEntryForm(); renderSettingsPage();
     } catch(err) { alert('ファイルの読み込みに失敗しました\n' + err.message); }
   };
