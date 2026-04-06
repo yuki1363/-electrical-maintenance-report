@@ -479,6 +479,10 @@ function _init() {
 document.addEventListener('DOMContentLoaded', _init);
 _init();
 
+// 印刷前後にブラウザヘッダーを非表示にする
+window.addEventListener('beforeprint', () => { document.title = ''; });
+window.addEventListener('afterprint',  () => { document.title = '高圧受電設備 点検記録'; });
+
 // ===================== 基本情報の保持 =====================
 function saveBasicInfo() {
   try {
@@ -1451,6 +1455,12 @@ function hasOtherEquipRec(date) {
   });
 }
 
+function getConfigForEquipment(eq) {
+  const key = eq === 'main' ? 'inspection_config' : `inspection_config_${eq}`;
+  try { const c = JSON.parse(localStorage.getItem(key)); if (c) return c; } catch(e) {}
+  return JSON.parse(JSON.stringify(EQ_DEFAULTS[eq] || DEFAULT_CONFIG));
+}
+
 function printAllEquipment() {
   const date = currentRecordId
     ? (() => { const f = findRecord(currentRecordId); return f ? f.rec.date : null; })()
@@ -1465,7 +1475,7 @@ function printAllEquipment() {
     if (html) html += `<div style="page-break-before:always"></div>`;
     const EQ_SECTION = { main:'高圧受電設備', battery:'蓄電池設備', generator:'発電機' };
     html += `<div style="font-size:15px;font-weight:bold;border-left:4px solid #1a5276;padding:4px 10px;margin-bottom:10px;color:#1a5276;background:#eaf4fb">■ ${EQ_SECTION[eq]}　${fmtDate(date)}</div>`;
-    html += buildRecordHTML({ ...rec, equipmentType: eq });
+    html += buildRecordHTML({ ...rec, equipmentType: eq, config: getConfigForEquipment(eq) });
   });
   if (!html) { alert('印刷できる記録がありません'); return; }
   document.getElementById('print-title').textContent = '高圧受電設備等　点検記録';
