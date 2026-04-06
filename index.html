@@ -202,6 +202,12 @@ body.modal-open { overflow: hidden; }
       <textarea id="remarks" placeholder="異常・気になる点・連絡事項などを入力"></textarea>
     </div>
   </div>
+  <div class="card" style="margin-top:4px">
+    <div class="card-title">改修内容</div>
+    <div class="form-row" style="flex-direction:column;align-items:stretch">
+      <textarea id="repair-notes" rows="5" placeholder="実施した改修・修理の内容を詳しく入力（部品交換、作業内容、使用資材など）" style="min-height:120px"></textarea>
+    </div>
+  </div>
   <div id="edit-banner" style="display:none;background:#eafaf1;border:1px solid #1e8449;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
       <span id="edit-info" style="color:#1e5631;font-weight:bold">✎ 記録を編集中</span>
@@ -541,7 +547,8 @@ function loadDataIntoForm(data) {
   }
   if (data.room_temp !== undefined && data.room_temp !== '') document.getElementById('room_temp').value = data.room_temp;
   if (data.humidity  !== undefined && data.humidity  !== '') document.getElementById('humidity').value  = data.humidity;
-  if (data.remarks)   document.getElementById('remarks').value   = data.remarks;
+  if (data.remarks)     document.getElementById('remarks').value      = data.remarks;
+  if (data.repairNotes) document.getElementById('repair-notes').value = data.repairNotes;
   if (data.statuses) {
     Object.entries(data.statuses).forEach(([key, val]) => {
       currentStatuses[key] = val;
@@ -871,6 +878,7 @@ function collectForm() {
       return [cat.id, el ? el.value : ''];
     })),
     remarks: document.getElementById('remarks').value,
+    repairNotes: document.getElementById('repair-notes').value,
     config: JSON.parse(JSON.stringify(cfg)),
   };
 }
@@ -1237,11 +1245,17 @@ function buildRecordHTML(r) {
     html += '</table>';
   }
 
-  html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px">
+  html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
     ${th2('特記事項')}
     <tr><td style="padding:8px;border:1px solid #ccc;white-space:pre-wrap">${esc(r.remarks||'（なし）')}</td></tr>
-  </table>
-  <div style="margin-top:8px;font-size:11px;color:#aaa;text-align:right">保存日時：${r.savedAt ? new Date(r.savedAt).toLocaleString('ja-JP') : '—'}</div>`;
+  </table>`;
+  if (r.repairNotes) {
+    html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px">
+      <tr><th colspan="2" style="padding:5px 7px;border:1px solid #ccc;background:#fde8e8;text-align:left;color:#922b21">改修内容</th></tr>
+      <tr><td style="padding:8px;border:1px solid #ccc;white-space:pre-wrap">${esc(r.repairNotes)}</td></tr>
+    </table>`;
+  }
+  html += `<div style="margin-top:8px;font-size:11px;color:#aaa;text-align:right">保存日時：${r.savedAt ? new Date(r.savedAt).toLocaleString('ja-JP') : '—'}</div>`;
   return html;
 }
 
@@ -1365,6 +1379,8 @@ function buildRepairHTML(r) {
   <table style="width:100%;border-collapse:collapse;font-size:13px">
     <tr><th colspan="2" style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8;text-align:left">総合備考</th></tr>
     <tr><td colspan="2" style="padding:8px;border:1px solid #ccc;min-height:60px;white-space:pre-wrap">${esc(r.remarks||'（なし）')}</td></tr>
+    <tr><th colspan="2" style="padding:6px 8px;border:1px solid #ccc;background:#fde8e8;text-align:left;color:#922b21">改修内容</th></tr>
+    <tr><td colspan="2" style="padding:8px;border:1px solid #ccc;min-height:60px;white-space:pre-wrap">${esc(r.repairNotes||'（なし）')}</td></tr>
     <tr><th style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8;width:40%">確認者</th><td style="padding:8px;border:1px solid #ccc">&nbsp;</td></tr>
     <tr><th style="padding:6px 8px;border:1px solid #ccc;background:#d6eaf8">対応期限</th><td style="padding:8px;border:1px solid #ccc">&nbsp;</td></tr>
   </table>
