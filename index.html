@@ -237,13 +237,21 @@ body.modal-open { overflow: hidden; }
 <div class="page" id="page-history">
   <div style="margin-top:12px">
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="exportData()">JSONエクスポート</button>
+      <button class="btn btn-primary btn-sm" onclick="exportData()">JSONエクスポート（全設備）</button>
       <button class="btn btn-warning btn-sm" onclick="document.getElementById('importFile').click()">JSONインポート</button>
       <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     </div>
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
       <input type="text" id="annual-year" placeholder="例: 2026" maxlength="4" style="width:90px;flex:none;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:16px;font-family:inherit">
-      <button class="btn btn-primary btn-sm" onclick="showAnnualReport()">年間報告書を作成</button>
+      <button class="btn btn-primary btn-sm" onclick="showAnnualReport()">年間報告書（現設備）</button>
+      <button class="btn btn-secondary btn-sm" onclick="showAllAnnualReport()">全設備 年間報告書</button>
+    </div>
+    <div style="display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:var(--muted)">絞り込み:</span>
+      <button class="btn btn-primary btn-sm" id="hf-all" onclick="setHistoryFilter('all')">全設備</button>
+      <button class="btn btn-secondary btn-sm" id="hf-main" onclick="setHistoryFilter('main')">受電設備</button>
+      <button class="btn btn-secondary btn-sm" id="hf-battery" onclick="setHistoryFilter('battery')">蓄電池</button>
+      <button class="btn btn-secondary btn-sm" id="hf-generator" onclick="setHistoryFilter('generator')">発電機</button>
     </div>
     <div class="search-bar">
       <input type="text" id="search-month" placeholder="例: 2026-03" maxlength="7" onchange="renderHistory()" style="width:120px;flex:none">
@@ -266,8 +274,8 @@ body.modal-open { overflow: hidden; }
       <div class="card-title" style="font-size:14px;margin-bottom:8px">設定の共有</div>
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px">設定（点検項目・計測値フィールド）をファイルに保存して、他の端末に引き継げます。</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <button class="btn btn-primary btn-sm" onclick="exportConfig()">設定をエクスポート</button>
-        <button class="btn btn-warning btn-sm" onclick="document.getElementById('configImportFile').click()">設定をインポート</button>
+        <button class="btn btn-primary btn-sm" onclick="exportConfig()">設定をエクスポート（全設備）</button>
+        <button class="btn btn-warning btn-sm" onclick="document.getElementById('configImportFile').click()">設定をインポート（全設備）</button>
         <input type="file" id="configImportFile" accept=".json" style="display:none" onchange="importConfigFile(event)">
       </div>
       <button class="btn btn-secondary btn-sm" onclick="saveAsDefault()">現在の設定をデフォルトとして保存</button>
@@ -406,6 +414,41 @@ let currentPreviewData = null;
 let editingRecordId = null;
 let _modalScrollY = 0;
 let draftTimer = null;
+let historyFilter = 'all';
+
+// 全設備横断ヘルパー
+const EQ_REC_KEYS = { main:'inspection_records', battery:'inspection_records_battery', generator:'inspection_records_generator' };
+
+function getAllRecordsFlat() {
+  const result = {};
+  Object.entries(EQ_REC_KEYS).forEach(([eq, key]) => {
+    try {
+      Object.entries(JSON.parse(localStorage.getItem(key)||'{}')).forEach(([id, r]) => {
+        result[id] = { ...r, equipmentType: r.equipmentType || eq };
+      });
+    } catch(e) {}
+  });
+  return result;
+}
+
+function findRecord(id) {
+  for (const [eq, key] of Object.entries(EQ_REC_KEYS)) {
+    try {
+      const recs = JSON.parse(localStorage.getItem(key) || '{}');
+      if (recs[id]) return { rec: { ...recs[id], equipmentType: recs[id].equipmentType || eq }, eq, key, recs };
+    } catch(e) {}
+  }
+  return null;
+}
+
+function setHistoryFilter(eq) {
+  historyFilter = eq;
+  ['all','main','battery','generator'].forEach(k => {
+    const btn = document.getElementById('hf-' + k);
+    if (btn) btn.className = k === eq ? 'btn btn-primary btn-sm' : 'btn btn-secondary btn-sm';
+  });
+  renderHistory();
+}
 
 // ===================== localStorage 動作チェック =====================
 function checkLocalStorageAvailable() {
@@ -780,8 +823,9 @@ function saveRecord() {
 
 function editRecord(id) {
   if (!id) return;
-  const r = getRecords()[id];
-  if (!r) return;
+  const found = findRecord(id);
+  if (!found) return;
+  const r = found.rec;
   closeModal();
   // 設備タイプが違う場合は切り替え
   if (r.equipmentType && r.equipmentType !== activeEquipment) {
@@ -847,10 +891,16 @@ function getRecords() {
 
 // ===================== 履歴 =====================
 function renderHistory() {
-  const recs = getRecords();
+  let recsObj;
+  if (historyFilter === 'all') {
+    recsObj = getAllRecordsFlat();
+  } else {
+    const key = EQ_REC_KEYS[historyFilter] || recKey();
+    try { recsObj = JSON.parse(localStorage.getItem(key) || '{}'); } catch(e) { recsObj = {}; }
+  }
   const list = document.getElementById('history-list');
   const fm = document.getElementById('search-month').value;
-  let sorted = Object.values(recs).sort((a,b) => b.date.localeCompare(a.date));
+  let sorted = Object.values(recsObj).sort((a,b) => b.date.localeCompare(a.date));
   if (fm) sorted = sorted.filter(r => r.date.startsWith(fm));
   if (!sorted.length) { list.innerHTML = '<div class="no-records">点検記録がありません</div>'; return; }
   list.innerHTML = sorted.map(r => {
@@ -859,7 +909,10 @@ function renderHistory() {
     const ca = vals.filter(v=>v==='caution').length;
     const re = vals.filter(v=>v==='repair').length;
     const go = vals.filter(v=>v==='good').length;
+    const eqBadge = historyFilter === 'all'
+      ? `<span class="badge" style="background:#2980b9;color:#fff;font-size:11px">${EQ_NAMES[r.equipmentType]||'—'}</span>` : '';
     const badges = [
+      eqBadge,
       re ? `<span class="badge badge-repair">要修理 ${re}件</span>` : '',
       ca ? `<span class="badge badge-caution">要注意 ${ca}件</span>` : '',
       (!re && !ca && go) ? '<span class="badge badge-good">異常なし</span>' : '',
@@ -889,8 +942,9 @@ function fmtDate(d) {
 
 // ===================== 詳細モーダル =====================
 function openRecord(id) {
-  const r = getRecords()[id];
-  if (!r) return;
+  const found = findRecord(id);
+  if (!found) return;
+  const r = found.rec;
   currentRecordId = id;
   currentPreviewData = null;
   document.getElementById('modal-title').textContent = `点検記録 ${fmtDate(r.date)}`;
@@ -917,7 +971,7 @@ function showAnnualReport() {
   currentPreviewData = null;
   document.getElementById('modal-title').textContent = `${EQ_NAMES[activeEquipment]} ${year}年 年間点検集計報告書`;
   document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]} 年間点検集計報告書　${year}年`;
-  document.getElementById('modal-content').innerHTML = buildAnnualHTML(recs, year);
+  document.getElementById('modal-content').innerHTML = buildAnnualHTML(recs, year, activeEquipment);
   document.getElementById('repair-btn').style.display = 'none';
   document.getElementById('edit-rec-btn').style.display = 'none';
   showDeleteBtn(false);
@@ -927,8 +981,37 @@ function showAnnualReport() {
   document.body.classList.add('modal-open');
 }
 
-function buildAnnualHTML(recs, year) {
-  const cfg = getConfig();
+function showAllAnnualReport() {
+  const year = (document.getElementById('annual-year').value.trim()) || String(new Date().getFullYear());
+  if (!/^\d{4}$/.test(year)) { alert('年を4桁で入力してください（例: 2026）'); return; }
+  let html = '';
+  ['main','battery','generator'].forEach(eq => {
+    const key = EQ_REC_KEYS[eq];
+    let recs = [];
+    try { recs = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).filter(r => r.date && r.date.startsWith(year)).sort((a,b)=>a.date.localeCompare(b.date)); } catch(e) {}
+    if (!recs.length) return;
+    if (html) html += `<div style="page-break-before:always"></div>`;
+    html += `<div style="font-size:16px;font-weight:bold;text-align:center;margin-bottom:8px">${EQ_NAMES[eq]} 年間点検集計報告書 ${year}年</div>`;
+    html += buildAnnualHTML(recs, year, eq);
+  });
+  if (!html) { alert(`${year}年の記録がありません`); return; }
+  currentRecordId = null; currentPreviewData = null;
+  document.getElementById('modal-title').textContent = `全設備 ${year}年 年間点検集計報告書`;
+  document.getElementById('print-title').textContent = `全設備 年間点検集計報告書　${year}年`;
+  document.getElementById('modal-content').innerHTML = html;
+  document.getElementById('repair-btn').style.display = 'none';
+  document.getElementById('edit-rec-btn').style.display = 'none';
+  showDeleteBtn(false);
+  document.getElementById('all-eq-btn').style.display = 'none';
+  _modalScrollY = window.scrollY;
+  document.getElementById('modal').classList.add('active');
+  document.body.classList.add('modal-open');
+}
+
+function buildAnnualHTML(recs, year, eq) {
+  eq = eq || activeEquipment;
+  const cfgStorageKey = eq === 'main' ? 'inspection_config' : `inspection_config_${eq}`;
+  const cfg = JSON.parse(localStorage.getItem(cfgStorageKey)||'null') || JSON.parse(JSON.stringify(EQ_DEFAULTS[eq]));
   const TH = s => `<th style="padding:5px 7px;border:1px solid #ccc;background:#d6eaf8;white-space:nowrap;text-align:center">${s}</th>`;
   const TD = (s, style) => `<td style="padding:4px 7px;border:1px solid #ccc${style ? ';' + style : ''}">${s != null && s !== '' ? s : '—'}</td>`;
 
@@ -1024,7 +1107,7 @@ function buildAnnualHTML(recs, year) {
   const sec = t => `<div style="font-weight:bold;font-size:13px;color:#1a5276;border-left:3px solid #1a5276;padding-left:8px;margin:14px 0 6px">${t}</div>`;
 
   let html = `<div style="font-size:12px;color:#555;padding:8px 10px;background:#f4f6f7;border-radius:6px;margin-bottom:10px;line-height:1.8">
-    設備：<b>${EQ_NAMES[activeEquipment]}</b>　設備名称：<b>${esc(facility)}</b>　年度：<b>${year}年</b><br>
+    設備：<b>${EQ_NAMES[eq]}</b>　設備名称：<b>${esc(facility)}</b>　年度：<b>${year}年</b><br>
     点検回数：<b>${recs.length}回</b>　要注意累計：<b style="color:#d4ac0d">${totalCaution}件</b>　要修理累計：<b style="color:#c0392b">${totalRepair}件</b>
   </div>`;
 
@@ -1153,23 +1236,25 @@ function previewPrint() {
   _modalScrollY = window.scrollY;
   document.getElementById('modal').classList.add('active');
   document.body.classList.add('modal-open');
-  setTimeout(() => window.print(), 300);
+  setTimeout(() => { window.print(); clearDraft(); }, 300);
 }
 
 function deleteRecord() {
   if (!currentRecordId) return;
   if (!confirm('この記録を削除しますか？')) return;
-  const recs = getRecords();
-  delete recs[currentRecordId];
-  try { localStorage.setItem(recKey(), JSON.stringify(recs)); } catch(e) {}
+  const found = findRecord(currentRecordId);
+  if (!found) return;
+  delete found.recs[currentRecordId];
+  try { localStorage.setItem(found.key, JSON.stringify(found.recs)); } catch(e) {}
   closeModal(); renderHistory();
 }
 
 function deleteRecordById(id) {
   if (!confirm('この記録を削除しますか？')) return;
-  const recs = getRecords();
-  delete recs[id];
-  try { localStorage.setItem(recKey(), JSON.stringify(recs)); } catch(e) {}
+  const found = findRecord(id);
+  if (!found) return;
+  delete found.recs[id];
+  try { localStorage.setItem(found.key, JSON.stringify(found.recs)); } catch(e) {}
   if (currentRecordId === id) closeModal();
   renderHistory();
 }
