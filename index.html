@@ -110,13 +110,13 @@ body.modal-open { overflow: hidden; }
 
 /* Print */
 @media print {
-  header,.tabs,.btn,#print-actions,.modal-overlay:not(.active) { display: none !important; }
+  header,.tabs,.btn,#print-actions,.modal-overlay:not(.active),.eq-bar,.modal-header { display: none !important; }
   .modal-overlay { display: block !important; position: static !important; padding: 0 !important; background: none !important; overflow: visible !important; }
   .modal { width: 100% !important; box-shadow: none !important; padding: 0 !important; border-radius: 0 !important; }
   .close-btn { display: none !important; }
   body { background: #fff; font-size: 12px; }
   .page { display: none !important; }
-  .print-title { display: block !important; font-size: 18px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+  .print-title { display: block !important; font-size: 18px; font-weight: bold; text-align: right; margin-bottom: 10px; }
   .ptable { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
   .ptable th,.ptable td { border: 1px solid #333; padding: 4px 7px; }
   .ptable th { background: #d6eaf8; }
@@ -934,7 +934,7 @@ function openRecord(id) {
   currentRecordId = id;
   currentPreviewData = null;
   document.getElementById('modal-title').textContent = `点検記録 ${fmtDate(r.date)}`;
-  document.getElementById('print-title').textContent = `${EQ_NAMES[r.equipmentType]||EQ_NAMES[activeEquipment]||EQ_NAMES.main} 日常点検記録　${fmtDate(r.date)}`;
+  document.getElementById('print-title').textContent = '高圧受電設備等　点検記録';
   document.getElementById('modal-content').innerHTML = buildRecordHTML(r);
   document.getElementById('repair-btn').textContent = '改修推奨資料';
   document.getElementById('repair-btn').onclick = showRepairDoc;
@@ -1141,7 +1141,7 @@ function closeModal() {
 }
 
 function buildRecordHTML(r) {
-  const cfg = r.config || getConfig();
+  const cfg = r.config || (EQ_DEFAULTS[r.equipmentType] ? JSON.parse(JSON.stringify(EQ_DEFAULTS[r.equipmentType])) : getConfig());
   const st = r.statuses || {};
   const ms = r.measurements || {};
   const td = (v,w) => `<td style="padding:5px 7px;border:1px solid #ccc${w?';width:'+w:''}">${v}</td>`;
@@ -1196,6 +1196,7 @@ function buildRecordHTML(r) {
       html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
       cat.checks.forEach(item => {
         const v = st[item.key] || 'good';
+        if (v === 'na') return;
         html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
       });
       if (cr[cat.id]) {
@@ -1221,7 +1222,7 @@ function previewPrint() {
   currentPreviewData = data;
   currentRecordId = null;
   document.getElementById('modal-title').textContent = `プレビュー ${fmtDate(data.date)}`;
-  document.getElementById('print-title').textContent = `${EQ_NAMES[activeEquipment]} 日常点検記録　${fmtDate(data.date)}`;
+  document.getElementById('print-title').textContent = '高圧受電設備等　点検記録';
   document.getElementById('modal-content').innerHTML = buildRecordHTML(data);
   document.getElementById('repair-btn').textContent = '改修推奨資料';
   document.getElementById('repair-btn').onclick = showRepairDoc;
@@ -1452,7 +1453,7 @@ function hasOtherEquipRec(date) {
 
 function printAllEquipment() {
   const date = currentRecordId
-    ? (getRecords()[currentRecordId] || {}).date
+    ? (() => { const f = findRecord(currentRecordId); return f ? f.rec.date : null; })()
     : (currentPreviewData && currentPreviewData.date);
   if (!date) return;
   let html = '';
@@ -1462,11 +1463,11 @@ function printAllEquipment() {
     try { rec = Object.values(JSON.parse(localStorage.getItem(key)||'{}')).find(r => r.date === date); } catch(e) { return; }
     if (!rec) return;
     if (html) html += `<div style="page-break-before:always"></div>`;
-    html += `<div style="font-size:18px;font-weight:bold;text-align:center;margin-bottom:10px">${EQ_NAMES[eq]} 日常点検記録　${fmtDate(date)}</div>`;
+    html += `<div style="font-size:15px;font-weight:bold;border-left:4px solid #1a5276;padding:4px 10px;margin-bottom:10px;color:#1a5276;background:#eaf4fb">■ ${EQ_NAMES[eq]}設備　${fmtDate(date)}</div>`;
     html += buildRecordHTML(rec);
   });
   if (!html) { alert('印刷できる記録がありません'); return; }
-  document.getElementById('print-title').textContent = '';
+  document.getElementById('print-title').textContent = '高圧受電設備等　点検記録';
   document.getElementById('modal-title').textContent = `全設備 ${fmtDate(date)}`;
   document.getElementById('modal-content').innerHTML = html;
   setTimeout(() => window.print(), 300);
