@@ -160,6 +160,17 @@ body.modal-open { overflow: hidden; }
   <span style="font-size:12px;opacity:.85">詳しくは README をご覧ください。</span>
 </div>
 
+<!-- 下書きバナー（常に最上部に固定表示） -->
+<div id="draft-banner" style="display:none;background:#fef9e7;border-bottom:2px solid #d4ac0d;padding:10px 16px;font-size:13px;position:sticky;top:0;z-index:140">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;max-width:700px;margin:0 auto">
+    <span id="draft-info" style="color:#7d6608;font-weight:bold"></span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-warning btn-sm" onclick="restoreDraft()">下書きを読み込む</button>
+      <button class="btn btn-secondary btn-sm" onclick="clearDraft()">破棄</button>
+    </div>
+  </div>
+</div>
+
 <div class="eq-bar" id="eq-bar">
   <button class="eq-btn active" onclick="switchEquipment('main')">高圧受電設備</button>
   <button class="eq-btn" onclick="switchEquipment('battery')">蓄電池</button>
@@ -212,15 +223,6 @@ body.modal-open { overflow: hidden; }
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
       <span id="edit-info" style="color:#1e5631;font-weight:bold">✎ 記録を編集中</span>
       <button class="btn btn-secondary btn-sm" onclick="cancelEdit()">キャンセル</button>
-    </div>
-  </div>
-  <div id="draft-banner" style="display:none;background:#fef9e7;border:1px solid #d4ac0d;border-radius:8px;padding:10px 14px;margin-top:10px;font-size:13px">
-    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-      <span id="draft-info" style="color:#7d6608"></span>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-warning btn-sm" onclick="restoreDraft()">下書きを読み込む</button>
-        <button class="btn btn-secondary btn-sm" onclick="clearDraft()">削除</button>
-      </div>
     </div>
   </div>
   <div id="autosave-indicator" style="text-align:right;font-size:11px;color:var(--muted);margin-top:6px;min-height:16px"></div>
@@ -622,7 +624,8 @@ function buildEntryForm() {
       card.className = 'card';
       card.innerHTML = `<div class="card-title">${esc(cat.title)}</div>`;
       cat.checks.forEach(item => {
-        currentStatuses[item.key] = currentStatuses[item.key] || 'good';
+        // 編集時など既存値があればそのまま、なければ未選択
+        const cur = currentStatuses[item.key] || null;
         const ps = prevSt[item.key];
         const prevHtml = ps ? `<div class="prev-val">前回${prevDate}: ${SL[ps]||ps}</div>` : '';
         const row = document.createElement('div');
@@ -630,9 +633,10 @@ function buildEntryForm() {
         row.style.cssText = 'flex-direction:column;align-items:stretch;gap:4px';
         row.innerHTML = `<label style="font-size:13px;color:var(--text)">${esc(item.label)}</label>
           <div class="status-group">
-            <div class="status-btn good active" onclick="setSt('${item.key}','good',this)">良好</div>
-            <div class="status-btn caution"     onclick="setSt('${item.key}','caution',this)">要注意</div>
-            <div class="status-btn repair"      onclick="setSt('${item.key}','repair',this)">要修理</div>
+            <div class="status-btn good    ${cur==='good'    ?'active':''}" onclick="setSt('${item.key}','good',this)">良好</div>
+            <div class="status-btn caution ${cur==='caution' ?'active':''}" onclick="setSt('${item.key}','caution',this)">要注意</div>
+            <div class="status-btn repair  ${cur==='repair'  ?'active':''}" onclick="setSt('${item.key}','repair',this)">要修理</div>
+            <div class="status-btn na      ${cur==='na'      ?'active':''}" onclick="setSt('${item.key}','na',this)">N/A</div>
           </div>
           ${prevHtml}`;
         card.appendChild(row);
@@ -772,12 +776,15 @@ function renderHistory() {
   if (!sorted.length) { list.innerHTML = '<div class="no-records">点検記録がありません</div>'; return; }
   list.innerHTML = sorted.map(r => {
     const st = r.statuses || {};
-    const ca = Object.values(st).filter(v=>v==='caution').length;
-    const re = Object.values(st).filter(v=>v==='repair').length;
+    const vals = Object.values(st);
+    const ca = vals.filter(v=>v==='caution').length;
+    const re = vals.filter(v=>v==='repair').length;
+    const go = vals.filter(v=>v==='good').length;
     const badges = [
       re ? `<span class="badge badge-repair">要修理 ${re}件</span>` : '',
       ca ? `<span class="badge badge-caution">要注意 ${ca}件</span>` : '',
-      (!re && !ca) ? '<span class="badge badge-good">異常なし</span>' : '',
+      (!re && !ca && go) ? '<span class="badge badge-good">異常なし</span>' : '',
+      (!re && !ca && !go) ? '<span class="badge" style="background:#f4f6f7;color:var(--muted);border:1px solid var(--border)">未確認</span>' : '',
     ].join('');
     return `<div class="history-item" onclick="openRecord('${r.id}')">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
