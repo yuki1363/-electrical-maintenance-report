@@ -757,8 +757,14 @@ function saveRecord() {
     editingRecordId = null;
     document.getElementById('edit-banner').style.display = 'none';
   } else {
-    const id = Date.now().toString();
-    recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
+    const existing = Object.values(recs).find(r => r.date === data.date && r.equipmentType === activeEquipment);
+    if (existing) {
+      if (!confirm(`${fmtDate(data.date)} の記録が既に存在します。\n上書き更新しますか？`)) return;
+      recs[existing.id] = { ...existing, ...data, savedAt: new Date().toISOString() };
+    } else {
+      const id = Date.now().toString();
+      recs[id] = { id, equipmentType: activeEquipment, ...data, savedAt: new Date().toISOString() };
+    }
   }
   try {
     localStorage.setItem(recKey(), JSON.stringify(recs));
@@ -1082,23 +1088,7 @@ function buildRecordHTML(r) {
     <tr>${td('湿度')}${td((r.humidity||'—')+' %')}</tr>
   </table>`;
 
-  // 点検結果
-  html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
-    ${th2('点検結果')}`;
-  const cr = r.categoryRemarks || {};
-  cfg.forEach(cat => {
-    html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
-    cat.checks.forEach(item => {
-      const v = st[item.key] || 'good';
-      html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
-    });
-    if (cr[cat.id]) {
-      html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
-    }
-  });
-  html += '</table>';
-
-  // 計測値
+  // 計測値（先に表示）
   const msRows = [];
   const qs = r.qualifiers || {};
   cfg.forEach(cat => {
@@ -1121,6 +1111,22 @@ function buildRecordHTML(r) {
     html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
       ${th2('計測値')}${msRows.join('')}</table>`;
   }
+
+  // 点検結果
+  html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
+    ${th2('点検結果')}`;
+  const cr = r.categoryRemarks || {};
+  cfg.forEach(cat => {
+    html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
+    cat.checks.forEach(item => {
+      const v = st[item.key] || 'good';
+      html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
+    });
+    if (cr[cat.id]) {
+      html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
+    }
+  });
+  html += '</table>';
 
   html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px">
     ${th2('特記事項')}
