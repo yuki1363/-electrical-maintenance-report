@@ -1156,17 +1156,17 @@ function buildRecordHTML(r) {
   const cfg = r.config || getConfigForEquipment(r.equipmentType || activeEquipment);
   const st = r.statuses || {};
   const ms = r.measurements || {};
-  const td = (v,w) => `<td style="padding:5px 7px;border:1px solid #ccc${w?';width:'+w:''}">${v}</td>`;
-  const th2 = t => `<tr><th colspan="2" style="padding:5px 7px;border:1px solid #ccc;background:#d6eaf8;text-align:left">${t}</th></tr>`;
+  const td = (v,w,isLabel) => `<td style="padding:5px 7px;border:1px solid #ccc${w?';width:'+w:''}${isLabel?';background:#f0f7fd':''}">${v}</td>`;
+  const th2 = t => `<tr><th colspan="2" style="padding:6px 8px;border:1px solid #ccc;background:#1a5276;color:#fff;text-align:left;font-size:13px">${t}</th></tr>`;
 
   let html = `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:8px">
     ${th2('基本情報')}
-    <tr>${td('点検日','40%')}${td(fmtDate(r.date))}</tr>
-    <tr>${td('点検者')}${td(r.inspector||'—')}</tr>
-    <tr>${td('設備名称')}${td(r.facility||'—')}</tr>
-    <tr>${td('天候')}${td(r.weather||'—')}</tr>
-    <tr>${td('室温')}${td((r.room_temp||'—')+' ℃')}</tr>
-    <tr>${td('湿度')}${td((r.humidity||'—')+' %')}</tr>
+    <tr>${td('点検日','40%',true)}${td(fmtDate(r.date))}</tr>
+    <tr>${td('点検者','',true)}${td(r.inspector||'—')}</tr>
+    <tr>${td('設備名称','',true)}${td(r.facility||'—')}</tr>
+    <tr>${td('天候','',true)}${td(r.weather||'—')}</tr>
+    <tr>${td('室温','',true)}${td((r.room_temp||'—')+' ℃')}</tr>
+    <tr>${td('湿度','',true)}${td((r.humidity||'—')+' %')}</tr>
   </table>`;
 
   // 計測値（カテゴリ別ヘッダー付き・先に表示）
@@ -1183,13 +1183,13 @@ function buildRecordHTML(r) {
         const phases = m.phases || val.length;
         const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
         const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　') + q;
-        if (display) catRows.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
+        if (display) catRows.push(`<tr>${td(esc(m.label),'45%',true)}${td(display)}</tr>`);
       } else {
-        catRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
+        catRows.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%',true)}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
       }
     });
     if (catRows.length) {
-      msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
+      msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#d6eaf8;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
       msRows.push(...catRows);
     }
   });
@@ -1208,13 +1208,13 @@ function buildRecordHTML(r) {
             const phases = m.phases || val.length;
             const labels = getPhaseLabels(phases, m.phasePrefix) || val.map((_,i)=>`${i+1}`);
             const display = val.map((v,i) => v!=='' ? `${labels[i]}: ${applyMult(v,mult)} ${esc(m.unit)}` : '').filter(Boolean).join('　') + q;
-            if (display) catRows2.push(`<tr>${td(esc(m.label),'45%')}${td(display)}</tr>`);
+            if (display) catRows2.push(`<tr>${td(esc(m.label),'45%',true)}${td(display)}</tr>`);
           } else {
-            catRows2.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%')}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
+            catRows2.push(`<tr>${td(esc(m.label)+' ('+esc(m.unit)+')', '45%',true)}${td(applyMult(val,mult)+' '+esc(m.unit)+q)}</tr>`);
           }
         });
         if (catRows2.length) {
-          msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
+          msRows.push(`<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#d6eaf8;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`);
           msRows.push(...catRows2);
         }
       });
@@ -1232,11 +1232,11 @@ function buildRecordHTML(r) {
       ${th2('点検結果')}`;
     const cr = r.categoryRemarks || {};
     checkCats.forEach(cat => {
-      html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#eaf4fb;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
+      html += `<tr><td colspan="2" style="padding:4px 7px;border:1px solid #ccc;background:#d6eaf8;font-weight:bold;font-size:12px">${esc(cat.title)}</td></tr>`;
       cat.checks.forEach(item => {
         const v = st[item.key] || 'good';
         if (v === 'na') return;
-        html += `<tr>${td(esc(item.label),'45%')}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
+        html += `<tr>${td(esc(item.label),'45%',true)}<td class="sc-${v}" style="padding:5px 7px;border:1px solid #ccc">${SL[v]||v}</td></tr>`;
       });
       if (cr[cat.id]) {
         html += `<tr><td style="padding:4px 7px;border:1px solid #ccc;font-size:12px;color:#666" colspan="2">備考：${esc(cr[cat.id])}</td></tr>`;
@@ -1251,7 +1251,7 @@ function buildRecordHTML(r) {
   </table>`;
   if (r.repairNotes) {
     html += `<table class="ptable" style="width:100%;border-collapse:collapse;font-size:13px">
-      <tr><th colspan="2" style="padding:5px 7px;border:1px solid #ccc;background:#fde8e8;text-align:left;color:#922b21">改修内容</th></tr>
+      ${th2('改修内容')}
       <tr><td style="padding:8px;border:1px solid #ccc;white-space:pre-wrap">${esc(r.repairNotes)}</td></tr>
     </table>`;
   }
