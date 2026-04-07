@@ -815,6 +815,7 @@ function saveRecord() {
   saveBasicInfo();  // 点検者名・設備名称・天候を次回のデフォルトとして保持
   alert('保存しました');
   renderHistory();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function editRecord(id) {
